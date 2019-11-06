@@ -1,6 +1,14 @@
-using ITensorsGPU
-using Test
+using ITensorsGPU, Test
 
 @testset "ITensorsGPU.jl" begin
-    # Write your own tests here.
+    @testset "$filename" for filename in (
+        "test_cuitensor.jl",
+        "test_cucontract.jl",
+        "test_cumpo.jl",
+        "test_cumps.jl",
+        "test_cuiterativesolvers.jl"
+    )
+      println("Running $filename")
+      include(filename)
+    end
 end
