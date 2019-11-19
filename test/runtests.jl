@@ -1,4 +1,4 @@
-using ITensorsGPU, Test
+using ITensorsGPU, Test, CuArrays
 
 @testset "ITensorsGPU.jl" begin
     @testset "$filename" for filename in (

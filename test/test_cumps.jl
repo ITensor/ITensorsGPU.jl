@@ -1,7 +1,6 @@
 using ITensors,
       ITensorsGPU,
       Test
-
 @testset "cuMPS Basics" begin
 
   N = 10
@@ -23,7 +22,7 @@ using ITensors,
 
   @testset "cuproductMPS" begin
     @testset "vector of string input" begin
-      sites = spinHalfSites(N)
+      sites = siteinds("S=1/2",N)
       state = fill("",N)
       for j=1:N
         state[j] = isodd(j) ? "Up" : "Dn"
@@ -40,7 +39,7 @@ using ITensors,
     end
 
     @testset "vector of int input" begin
-      sites = spinHalfSites(N)
+      sites = siteinds("S=1/2",N)
       state = fill(0,N)
       for j=1:N
         state[j] = isodd(j) ? 1 : 2
@@ -97,52 +96,52 @@ using ITensors,
     @test inner(xi, xi) ≈ 4.0 * inner(psi, psi) 
   end
 
-  sites = spinHalfSites(N)
+  sites = siteinds("S=1/2",N)
   psi = cuMPS(sites)
   @test length(psi) == N # just make sure this works
   @test length(siteinds(psi)) == N
 
   psi = randomCuMPS(sites)
   orthogonalize!(psi, N-1)
-  @test ITensors.leftLim(psi) == N-2
-  @test ITensors.rightLim(psi) == N
+  @test ITensors.leftlim(psi) == N-2
+  @test ITensors.rightlim(psi) == N
   orthogonalize!(psi, 2)
-  @test ITensors.leftLim(psi) == 1
-  @test ITensors.rightLim(psi) == 3
+  @test ITensors.leftlim(psi) == 1
+  @test ITensors.rightlim(psi) == 3
   psi = randomCuMPS(sites)
   psi.rlim_ = N+1 # do this to test qr from rightmost tensor
   orthogonalize!(psi, div(N, 2))
-  @test ITensors.leftLim(psi) == div(N, 2) - 1
-  @test ITensors.rightLim(psi) == div(N, 2) + 1
+  @test ITensors.leftlim(psi) == div(N, 2) - 1
+  @test ITensors.rightlim(psi) == div(N, 2) + 1
 
   @test_throws ErrorException linkindex(MPS(N, fill(cuITensor(), N), 0, N + 1), 1)
 
-  @testset "replaceBond!" begin
+  @testset "replacebond!" begin
   # make sure factorization preserves the bond index tags
     psi = randomCuMPS(sites)
     phi = psi[1]*psi[2]
     bondindtags = tags(linkindex(psi,1))
-    replaceBond!(psi,1,phi)
+    replacebond!(psi,1,phi)
     @test tags(linkindex(psi,1)) == bondindtags
 
     # check that replaceBond! updates llim_ and rlim_ properly
     orthogonalize!(psi,5)
     phi = psi[5]*psi[6]
-    replaceBond!(psi,5,phi, dir="fromleft")
-    @test ITensors.leftLim(psi)==5
-    @test ITensors.rightLim(psi)==7
+    replacebond!(psi,5,phi, dir="fromleft")
+    @test ITensors.leftlim(psi)==5
+    @test ITensors.rightlim(psi)==7
 
     phi = psi[5]*psi[6]
-    replaceBond!(psi,5,phi,dir="fromright")
-    @test ITensors.leftLim(psi)==4
-    @test ITensors.rightLim(psi)==6
+    replacebond!(psi,5,phi,dir="fromright")
+    @test ITensors.leftlim(psi)==4
+    @test ITensors.rightlim(psi)==6
 
     psi.llim_ = 3
     psi.rlim_ = 7
     phi = psi[5]*psi[6]
-    replaceBond!(psi,5,phi,dir="fromleft")
-    @test ITensors.leftLim(psi)==3
-    @test ITensors.rightLim(psi)==7
+    replacebond!(psi,5,phi,dir="fromleft")
+    @test ITensors.leftlim(psi)==3
+    @test ITensors.rightlim(psi)==7
   end
 
 end
@@ -160,7 +159,6 @@ function basicRandomCuMPS(N::Int;dim=4)
   M[1]  /= sqrt(inner(M,M))
   return M
 end
-
 @testset "MPS gauging and truncation" begin
 
   N = 30
@@ -170,8 +168,8 @@ end
     M = basicRandomCuMPS(N)
     orthogonalize!(M,c)
 
-    @test leftLim(M) == c-1
-    @test rightLim(M) == c+1
+    @test leftlim(M) == c-1
+    @test rightlim(M) == c+1
 
     # Test for left-orthogonality
     L = M[1]*prime(M[1],"Link")
@@ -200,7 +198,7 @@ end
     M  = basicRandomCuMPS(N;dim=10)
     M0 = copy(M)
     truncate!(M;maxdim=5)
-    @test rightLim(M) == 2
+    @test rightlim(M) == 2
     # Test for right-orthogonality
     R = M[N]*prime(M[N],"Link")
     r = linkindex(M,N-1)
