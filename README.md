@@ -1,24 +1,25 @@
-## Getting CuITensors and PEPS up and running
+# ITensorsGPU: Intelligent Tensors with GPU acceleration
+
+This package is meant to extend the functionality of [ITensors.jl](https://github.com/ITensor/ITensors.jl) to make use of CUDA-enabled GPUs in a way that's simple enough that any user of ITensors.jl can take advantage of. It sits on top of the wonderful [CuArrays.jl](https://github.com/JuliaGPU/CuArrays.jl) package and uses NVIDIA's CUTENSOR library for high-performance tensor operations. It includes a GPU-enabled implementation of the [DMRG-PEPS algorithm](https://arxiv.org/abs/1908.08833).
+
+## Getting ITensorsGPU.jl and PEPS up and running
 
 What you'll need:
   - Julia 1.x -- I use 1.4-dev but anything 1.1 or after should work
   - CUDA 10.1
-  - CUTENSOR v0.2.2 -- `libcutensor.so` needs to be on your `LD_LIBRARY_PATH` so that `CuArrays.jl` will be able to find it.
-  - A copy of this repo that is available to Julia. `ITensors.jl` is presently *not* registered in the main Julia package registry. The easiest way to make Julia aware of it is to do a `git` clone of the `ksh/gpu` branch of `https://github.com/kshyatt/ITensors.jl`, and then execute the following in `julia`:
+  - CUTENSOR v1.0.0 -- `libcutensor.so` needs to be on your `LD_LIBRARY_PATH` so that `CuArrays.jl` will be able to find it.
+  - A copy of this repo that is available to Julia. `ITensors.jl` and `ITensorsGPU.jl` are presently *not* registered in the main Julia package registry. The easiest way to acquire them is to do an `add` or `dev` using their URLs:
     ```
-    julia> cd("YOUR_PATH_HERE/ITensors.jl")
-
     julia> ]
-
-    pkg> activate .
-    ...
-
-    ITensors> 
+    
+    pkg> add https://github.com/ITensor/ITensorsGPU.jl.git#master
+    
+    pkg> dev https://github.com/ITensor/ITensorsGPU.jl.git
     ```
     For a bit more explanation of what's going on here, check out the [Julia Pkg docs](https://docs.julialang.org/en/v1/stdlib/Pkg/).
-  - You might also need to do a checkout of the `master` branches of some dependencies:
+  - You need a specific version of some dependencies, because updates to `CuArrays.jl` and friends aren't playing nicely with `ITensorsGPU.jl` yet:
     ```
-    julia> cd("YOUR_PATH_HERE/ITensors.jl")
+    julia> cd("YOUR_PATH_HERE/ITensorsGPU.jl")
 
     julia> ]
 
@@ -30,11 +31,20 @@ What you'll need:
     ITensors> build
     ```
 
-To check if this has all worked, you can run one of the profiling scripts in `prof/` using something like `julia-1.4 prof_run.jl`.
+To check if this has all worked, you can run the package tests using:
+    ```
+    julia> cd("YOUR_PATH_HERE/ITensorsGPU.jl")
+
+    julia> ]
+
+    pkg> activate .
+    
+    pkg> test
+    ```
 
 Scripts included:
 - `prof/`: Really basic time profiling of algorithms that exist in "basic" `ITensors.jl`: 1-D and 2-D DMRG 
-- `peps/`: Implementation of the PEPS algorithm in [this article](https://arxiv.org/abs/1908.08833), along with profiling and timing info.
+- `src/peps/`: Implementation of the PEPS algorithm in [this article](https://arxiv.org/abs/1908.08833), along with profiling and timing info.
 
 Probably the most interesting file in `peps/` is `full_peps_run.jl`. This runs identical (or, extremely similar) simulations on the CPU (using BLAS) and GPU (using CUTENSOR) and does time profiling of them.
 Because of the way Julia compilation works, only the "main" simulation is timed (this is the vast majority of the walltime) -- for more information on this, see [here](https://docs.julialang.org/en/v1/manual/profile/).
