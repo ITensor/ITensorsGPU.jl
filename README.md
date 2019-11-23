@@ -9,6 +9,7 @@ What you'll need:
   - CUDA 10.1
   - CUTENSOR v1.0.0 -- `libcutensor.so` needs to be on your `LD_LIBRARY_PATH` so that `CuArrays.jl` will be able to find it.
   - A copy of this repo that is available to Julia. `ITensors.jl` and `ITensorsGPU.jl` are presently *not* registered in the main Julia package registry. The easiest way to acquire them is to do an `add` or `dev` using their URLs:
+  
     ```
     julia> ]
     
@@ -18,6 +19,7 @@ What you'll need:
     ```
     For a bit more explanation of what's going on here, check out the [Julia Pkg docs](https://docs.julialang.org/en/v1/stdlib/Pkg/).
   - You need a specific version of some dependencies, because updates to `CuArrays.jl` and friends aren't playing nicely with `ITensorsGPU.jl` yet:
+  
     ```
     julia> cd("YOUR_PATH_HERE/ITensorsGPU.jl")
 
@@ -32,6 +34,7 @@ What you'll need:
     ```
 
 To check if this has all worked, you can run the package tests using:
+
     ```
     julia> cd("YOUR_PATH_HERE/ITensorsGPU.jl")
 
