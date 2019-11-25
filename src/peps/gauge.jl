@@ -115,13 +115,25 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
         ratio > overlap_cutoff && break
         iter += 1
         iter > maxiter && break
-        #=if iter > 10 && mod(iter, 5) == 0 && best_overlap < 0.6
+        if iter > 10 && mod(iter, 5) == 0 && best_overlap < 0.6
+            Q_, QR_inds_, next_col_inds_ = initQs(A, col, next_col; kwargs...)
             for row in 1:Ny
+                if row < Ny
+                    old_u = commonindex(Q[row], Q[row+1])
+                    new_u = commonindex(Q_[row], Q_[row+1])
+                    replaceindex!(Q_[row], new_u, old_u)
+                    replaceindex!(Q_[row+1], new_u, old_u)
+                end
+                replaceindex!(Q_[row], QR_inds_[row], QR_inds[row])
+                replaceindex!(Q_[row], next_col_inds_[row], next_col_inds[row])
+            end
+            for row in 1:Ny
+                Q[row]  = Q_[row] 
                 salt    = randomITensor(inds(Q[row]))
                 Q[row] += salt/(scalar(dag(salt)*salt))
                 Q[row] /= sqrt(norm(Q[row])) 
             end
-        end=#
+        end
     end
     @info best_overlap
     return best_Q, best_R, next_col_inds, QR_inds, dummy_nexts
