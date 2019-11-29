@@ -5,7 +5,7 @@ Nx  = tryparse(Int, ARGS[1])
 Ny  = tryparse(Int, ARGS[1])
 
 chi = tryparse(Int, ARGS[2])
-simple_update_cutoff = -1
+simple_update_cutoff = 3
 
 # log file which keeps track of more detailed info about the simulation, not super exciting
 io = open("full_peps_$(string(Nx))_$chi.txt", "w+")
