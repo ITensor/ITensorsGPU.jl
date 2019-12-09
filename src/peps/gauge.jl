@@ -115,7 +115,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
         ratio > overlap_cutoff && break
         iter += 1
         iter > maxiter && break
-        if iter > 10 && mod(iter, 5) == 0 && best_overlap < 0.6
+        if (iter > 10 && best_overlap < 0.5) || (iter > 20 && mod(iter, 20) == 0)
             Q_, QR_inds_, next_col_inds_ = initQs(A, col, next_col; kwargs...)
             for row in 1:Ny
                 if row < Ny
@@ -125,7 +125,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
                     replaceindex!(Q_[row+1], new_u, old_u)
                 end
                 replaceindex!(Q_[row], QR_inds_[row], QR_inds[row])
-                replaceindex!(Q_[row], next_col_inds_[row], next_col_inds[row])
+                #replaceindex!(Q_[row], next_col_inds_[row], next_col_inds[row])
             end
             for row in 1:Ny
                 Q[row]  = Q_[row] 
