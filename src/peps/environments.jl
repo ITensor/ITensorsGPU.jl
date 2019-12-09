@@ -30,8 +30,9 @@ function buildEdgeEnvironment(A::PEPS, H, left_H_terms, next_combiners, side::Sy
         replaceindex!(I_mps[row+1], ci, ni)
     end
     maxdim       = get(kwargs, :maxdim, 1)
-    H_overall    = reduce((x,y) -> sum(x, y; kwargs...), Hs)
+    #H_overall    = reduce((x,y) -> sum(x, y; kwargs...), Hs)
     #H_overall    = reduce((x,y) -> sum(x, y), Hs)
+    H_overall    = sum(Hs; kwargs...)
     @debug "Summed Hs, maxdim=$maxdim"
     side_H       = side == :left ? H[:, col] : H[:, col - 1]
     side_H_terms = getDirectional(vcat(side_H...), Horizontal)
