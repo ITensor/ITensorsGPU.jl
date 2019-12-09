@@ -1145,14 +1145,15 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
     N        = buildN(A, L, R, AncEnvs[:I], row, col, new_A)
     new_N    = real(scalar(collect(N * dag(new_A)')))
     println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
-    if new_E/new_N > initial_E/initial_N
+    #=if new_E/new_N > initial_E/initial_N
         @info "badness"
         new_A = deepcopy(A[row, col])
         new_E = initial_E 
         new_N = initial_N #real(scalar(collect(N * dag(new_A)')))
-    end
+    end=#
     #@info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
     println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
+    flush(stdout)
         if row < Ny
             @debug "\tRestoring intraColumnGauge for col $col row $row"
             cmb_is   = IndexSet(findindex(A[row, col], "Site"))
@@ -1310,10 +1311,10 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
 end
 
 function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0.)
-    Ls, tL, bytes, gctime, memallocs = @timed buildLs(A, H; mindim=mindim, maxdim=maxdim)
-    Rs, tR, bytes, gctime, memallocs = @timed buildRs(A, H; mindim=mindim, maxdim=maxdim)
+    #Ls, tL, bytes, gctime, memallocs = @timed buildLs(A, H; mindim=mindim, maxdim=maxdim)
+    #Rs, tR, bytes, gctime, memallocs = @timed buildRs(A, H; mindim=mindim, maxdim=maxdim)
     for sweep in sweep_start:sweep_count
-        if isodd(sweep)
+        if iseven(sweep)
             println("SWEEP RIGHT $sweep")
             A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
         else
@@ -1322,11 +1323,13 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
         end
         flush(stdout)
         if sweep == simple_update_cutoff - 1
-            for col in 1:Nx-1
-                A = gaugeColumn(A, col, :right; mindim=1, maxdim=chi)
+            for col in reverse(2:Nx)
+                A = gaugeColumn(A, col, :left; mindim=1, maxdim=chi)
             end
-            Ls = buildLs(A, H; mindim=mindim, maxdim=maxdim)
-            Rs = buildRs(A, H; mindim=mindim, maxdim=maxdim)
+            #Ls = buildLs(A, H; mindim=1, maxdim=chi)
+            #Rs = buildRs(A, H; mindim=1, maxdim=chi)
+            Ls = buildLs(A, H)
+            Rs = buildRs(A, H)
         end
         if sweep == sweep_count
             A_ = deepcopy(A)
