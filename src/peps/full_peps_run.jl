@@ -5,7 +5,7 @@ Nx  = tryparse(Int, ARGS[1])
 Ny  = tryparse(Int, ARGS[1])
 
 chi = tryparse(Int, ARGS[2])
-simple_update_cutoff = -1 
+simple_update_cutoff = 3
 
 # log file which keeps track of more detailed info about the simulation, not super exciting
 io = open("full_peps_$(string(Nx))_$chi.txt", "w+")
@@ -21,10 +21,10 @@ A = checkerboardPEPS(sites, Nx, Ny, mindim=chi)
 H = makeH_XXZ(Nx, Ny, J)
 @info "Built A and H"
 
-for col in reverse(2:Nx)
+#=for col in reverse(2:Nx)
     global A
     A = gaugeColumn(A, col, :left; mindim=1, maxdim=chi)
-end
+end=#
 # run heaviest functions one time to make Julia compile everything
 Ls = buildLs(A, H; mindim=1, maxdim=chi)
 @info "Built first Ls"
