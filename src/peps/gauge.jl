@@ -1,5 +1,12 @@
 using ITensors, ITensorsGPU
 
+function my_polar( T::ITensor, inds...; kwargs... )
+    U, S, V, u, v = svd(T, inds; kwargs...)
+    replaceindex!(U, u, v)
+    return U*V
+end
+
+
 function initQs( A::PEPS, col::Int, next_col::Int; kwargs...)
     Ny, Nx = size(A)
     maxdim::Int = get(kwargs, :maxdim, 1)
@@ -21,7 +28,7 @@ end
 
 function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
     overlap_cutoff::Real = get(kwargs, :overlap_cutoff, 1e-4)
-    maxiter::Int         = get(kwargs, :maxiter, 50)
+    maxiter::Int         = get(kwargs, :maxiter, 100)
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
     prev_col_inds = Vector{Index}(undef, Ny)
@@ -43,7 +50,6 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
     while best_overlap < overlap_cutoff 
         thisTerm  = Vector{ITensor}(undef, Ny)
         thisfTerm = Vector{ITensor}(undef, Ny)
-        #Envs      = is_gpu ? [cuITensor(1.0) for row in 1:Ny] : [ITensor(1.0) for row in 1:Ny]
         @timeit "build envs" begin
             for row in 1:Ny
                 Ap = dag(deepcopy(A[row, col]))'
@@ -60,7 +66,6 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
                 if row > 1
                     Envs[row] *= fF[row - 1]
                 end
-                #Envs[row] *= thisTerm[row]
                 if row < Ny
                     Envs[row] *= rF[row + 1]
                 end
@@ -69,10 +74,10 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
         @timeit "polar decomp" begin
             for row in 1:Ny
                 if row < Ny
-                    Q_, P_ = polar(Envs[row], QR_inds[row], commonindex(Q[row], Q[row+1]); kwargs...)
+                    Q_ = my_polar(Envs[row], QR_inds[row], commonindex(Q[row], Q[row+1]); kwargs...)
                     Q[row] = deepcopy(noprime(Q_))
                 else
-                    Q_, P_ = polar(Envs[row], QR_inds[row]; kwargs...)
+                    Q_ = my_polar(Envs[row], QR_inds[row]; kwargs...)
                     Q[row] = deepcopy(noprime(Q_))
                 end
                 AQinds     = IndexSet(findindex(A[row, col], "Site")) 
@@ -115,7 +120,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
         ratio > overlap_cutoff && break
         iter += 1
         iter > maxiter && break
-        if (iter > 10 && best_overlap < 0.5) || (iter > 20 && mod(iter, 20) == 0)
+        #=if (iter > 10 && best_overlap < 0.5) || (iter > 20 && mod(iter, 20) == 0)
             Q_, QR_inds_, next_col_inds_ = initQs(A, col, next_col; kwargs...)
             for row in 1:Ny
                 if row < Ny
@@ -133,7 +138,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
                 Q[row] += salt/(scalar(dag(salt)*salt))
                 Q[row] /= sqrt(norm(Q[row])) 
             end
-        end
+        end=#
     end
     @info best_overlap
     return best_Q, best_R, next_col_inds, QR_inds, dummy_nexts
