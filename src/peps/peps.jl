@@ -1136,24 +1136,22 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
         localH = sum(Hs)
     end
     initial_E = real(scalar(collect(deepcopy(localH) * dag(A[row, col])')))
-    #@info "Initial energy at row $row col $col : $(initial_E/(initial_N*Nx*Ny)) and norm : $initial_N"
-    println("Initial energy at row $row col $col : $(initial_E/(initial_N*Nx*Ny)) and norm : $initial_N")
+    @info "Initial energy at row $row col $col : $(initial_E/(initial_N*Nx*Ny)) and norm : $initial_N"
     @debug "\tBeginning davidson for col $col row $row"
     mapper   = ITensorMap(A, H, L, R, AncEnvs, row, col)
-    λ, new_A = davidson(mapper, A[row, col]; miniter=2, kwargs...)
+    λ, new_A = davidson(mapper, A[row, col]; kwargs...)
     new_E    = λ #real(scalar(collect(new_A * localH * dag(new_A)')))
     N        = buildN(A, L, R, AncEnvs[:I], row, col, new_A)
     new_N    = real(scalar(collect(N * dag(new_A)')))
-    println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
-    #=if new_E/new_N > initial_E/initial_N
+    #=println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
+    if new_E/new_N > initial_E/initial_N
         @info "badness"
         new_A = deepcopy(A[row, col])
         new_E = initial_E 
         new_N = initial_N #real(scalar(collect(N * dag(new_A)')))
     end=#
-    #@info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
-    println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
-    flush(stdout)
+    @info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
+    @timeit "restore intraColumnGauge" begin
         if row < Ny
             @debug "\tRestoring intraColumnGauge for col $col row $row"
             cmb_is   = IndexSet(findindex(A[row, col], "Site"))
@@ -1194,6 +1192,7 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
         else
             A[row, col] = initial_N > 0 ? new_A/√new_N : new_A
         end
+    end
     return A, AncEnvs
 end
 
@@ -1311,8 +1310,6 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
 end
 
 function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0.)
-    #Ls, tL, bytes, gctime, memallocs = @timed buildLs(A, H; mindim=mindim, maxdim=maxdim)
-    #Rs, tR, bytes, gctime, memallocs = @timed buildRs(A, H; mindim=mindim, maxdim=maxdim)
     for sweep in sweep_start:sweep_count
         if iseven(sweep)
             println("SWEEP RIGHT $sweep")
@@ -1326,10 +1323,8 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
             for col in reverse(2:Nx)
                 A = gaugeColumn(A, col, :left; mindim=1, maxdim=chi)
             end
-            #Ls = buildLs(A, H; mindim=1, maxdim=chi)
-            #Rs = buildRs(A, H; mindim=1, maxdim=chi)
-            Ls = buildLs(A, H)
-            Rs = buildRs(A, H)
+            Ls = buildLs(A, H; mindim=1, maxdim=chi)
+            Rs = buildRs(A, H; mindim=1, maxdim=chi)
         end
         if sweep == sweep_count
             A_ = deepcopy(A)
