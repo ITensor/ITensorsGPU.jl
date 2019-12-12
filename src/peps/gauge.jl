@@ -120,7 +120,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
         ratio > overlap_cutoff && break
         iter += 1
         iter > maxiter && break
-        #=if (iter > 10 && best_overlap < 0.5) || (iter > 20 && mod(iter, 20) == 0)
+        if (iter > 10 && best_overlap < 0.5) || (iter > 20 && mod(iter, 20) == 0)
             Q_, QR_inds_, next_col_inds_ = initQs(A, col, next_col; kwargs...)
             for row in 1:Ny
                 if row < Ny
@@ -138,7 +138,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
                 Q[row] += salt/(scalar(dag(salt)*salt))
                 Q[row] /= sqrt(norm(Q[row])) 
             end
-        end=#
+        end
     end
     @info best_overlap
     return best_Q, best_R, next_col_inds, QR_inds, dummy_nexts
