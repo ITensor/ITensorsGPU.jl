@@ -66,7 +66,7 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
     hori_H_terms  = getDirectional(vcat(H[:, col]...), Horizontal)
     side_H        = side == :left ? H[:, col] : H[:, col - 1]
     side_H_terms  = getDirectional(vcat(side_H...), Horizontal)
-    H_term_count  = 1 + length(field_H_terms) + vertcut#+ length(vert_H_terms)
+    H_term_count  = 1 + length(field_H_terms) + length(vert_H_terms)
     H_term_count += (side == :left ? length(side_H_terms) : length(hori_H_terms))
     final_H       = deepcopy(new_H)
     new_H_mps     = Vector{MPS}(undef, H_term_count)
