@@ -130,11 +130,10 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
                     replaceindex!(Q_[row+1], new_u, old_u)
                 end
                 replaceindex!(Q_[row], QR_inds_[row], QR_inds[row])
-                #replaceindex!(Q_[row], next_col_inds_[row], next_col_inds[row])
             end
             for row in 1:Ny
                 Q[row]  = Q_[row] 
-                salt    = randomITensor(inds(Q[row]))
+                salt    = is_gpu ? cuITensor(randomITensor(inds(Q[row]))) : randomITensor(inds(Q[row]))
                 Q[row] += salt/(scalar(dag(salt)*salt))
                 Q[row] /= sqrt(norm(Q[row])) 
             end

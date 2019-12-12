@@ -59,11 +59,13 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   Sinds = IndsT((u,v))
   Vinds = IndsT((ind(T,2),v))
   U = Tensor(Dense(vec(MU)),Uinds)
-  Sdata      = CuArrays.zeros(ElT, dS, dS)
-  dsi        = diagind(Sdata, 0)
+  Sdata      = CuArrays.zeros(ElT, dS * dS)
+  dsi        = diagind(reshape(Sdata, dS, dS), 0)
   Sdata[dsi] = MS
-  S = Tensor(Dense(vec(Sdata)),Sinds)
-  V = Tensor(Dense(vec(MV)),Vinds)
+  MV_ = CuArrays.zeros(ElT, length(MV))
+  copyto!(MV_, vec(MV))
+  S = Tensor(Dense(Sdata),Sinds)
+  V = Tensor(Dense(MV_),Vinds)
   return U,S,V
 end
 
@@ -94,7 +96,9 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   v = eltype(IndsT)(dD)
   Uinds = IndsT((ind(T,1),u))
   Dinds = IndsT((u,v))
-  U = Tensor(Dense(vec(dV)),Uinds)
+  dV_ = CuArrays.zeros(ElT, length(dV))
+  copyto!(dV_, vec(dV))
+  U = Tensor(Dense(dV_),Uinds)
   D = Tensor(Diag(real.(DM)),Dinds)
   return U,D
 end
@@ -106,8 +110,11 @@ function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}
   q = dim(q) < dim(r) ? sim(q) : sim(r)
   Qinds = IndsT((ind(T,1),q))
   Rinds = IndsT((q,ind(T,2)))
-  Q_ = vec(CuMatrix(QM))
-  R_ = vec(RM)
+  QM = CuMatrix(QM)
+  Q_ = CuArrays.zeros(ElT, length(QM))
+  R_ = CuArrays.zeros(ElT, length(RM))
+  copyto!(Q_, vec(QM))
+  copyto!(R_, vec(RM))
   Q = Tensor(Dense(Q_),Qinds)
   R = Tensor(Dense(R_),Rinds)
   return Q,R

@@ -13,12 +13,12 @@ function plussers(::Type{T}, left_ind::Index, right_ind::Index, sum_ind::Index) 
     #if dir(left_ind) == dir(right_ind) == Neither
         total_dim    = dim(left_ind) + dim(right_ind)
         total_dim    = max(total_dim, 1)
-        left_data   = CuArrays.zeros(Float64, dim(left_ind), dim(sum_ind))
-        ldi = diagind(left_data, 0)
+        left_data   = CuArrays.zeros(Float64, dim(left_ind)*dim(sum_ind))
+        ldi = diagind(reshape(left_data, dim(left_ind), dim(sum_ind)), 0)
         left_data[ldi] = 1.0
         left_tensor = cuITensor(vec(left_data), left_ind, sum_ind)
-        right_data   = CuArrays.zeros(Float64, dim(right_ind), dim(sum_ind))
-        rdi = diagind(right_data, dim(left_ind))
+        right_data   = CuArrays.zeros(Float64, dim(right_ind) * dim(sum_ind))
+        rdi = diagind(reshape(right_data, dim(right_ind), dim(sum_ind)), dim(left_ind))
         right_data[rdi] = 1.0
         right_tensor = cuITensor(vec(right_data), right_ind, sum_ind)
         return left_tensor, right_tensor
