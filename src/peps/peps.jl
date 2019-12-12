@@ -585,30 +585,30 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             high_row = op_row_b
             AIL = low_row > 0 ? AI[:below][low_row] : dummy 
             AIH = high_row < Ny ? AI[:above][end - high_row] : dummy 
+            sA   = findindex(A[op_row_a, col], "Site")
+            op_a = replaceindex!(copy(H[opcode].ops[1]), H[opcode].site_ind, sA)
+            op_a = replaceindex!(op_a, H[opcode].site_ind', sA')
+            sB   = findindex(A[op_row_b, col], "Site")
+            op_b = replaceindex!(copy(H[opcode].ops[2]), H[opcode].site_ind, sB)
+            op_b = replaceindex!(op_b, H[opcode].site_ind', sB')
             thisVert = AIH
             if col > 1
                 ci  = commonindex(A[op_row_b, col], A[op_row_b, col-1])
                 msi = multiply_side_ident(A[op_row_b, col], ci, copy(L.I[op_row_b]))
                 thisVert *= msi 
             end
-            thisVert *= ϕ
+            thisVert *= A[op_row_b, col] * op_b * dag(A[op_row_b, col])'
             if col < Nx
                 ci  = commonindex(A[op_row_b, col], A[op_row_b, col+1])
                 msi = multiply_side_ident(A[op_row_b, col], ci, copy(R.I[op_row_b]))
                 thisVert *= msi
             end
-            sA = findindex(A[op_row_a, col], "Site")
-            op_a = replaceindex!(copy(H[opcode].ops[1]), H[opcode].site_ind, sA)
-            op_a = replaceindex!(op_a, H[opcode].site_ind', sA')
-            sB = findindex(A[op_row_b, col], "Site")
-            op_b = replaceindex!(copy(H[opcode].ops[2]), H[opcode].site_ind, sB)
-            op_b = replaceindex!(op_b, H[opcode].site_ind', sB')
-            thisVert *= A[op_row_b, col] * op_b * dag(A[op_row_b, col])'
             if col > 1
                 ci  = commonindex(A[op_row_a, col], A[op_row_a, col-1])
                 msi = multiply_side_ident(A[op_row_a, col], ci, copy(L.I[op_row_a]))
                 thisVert *= msi 
             end
+            thisVert *= ϕ
             if col < Nx
                 ci  = commonindex(A[op_row_a, col], A[op_row_a, col+1])
                 msi = multiply_side_ident(A[op_row_a, col], ci, copy(R.I[op_row_a]))
@@ -1342,6 +1342,6 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
             println()
         end
     end
-    return tL, tR
+    return A
 end
 
