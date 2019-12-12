@@ -1,3 +1,5 @@
+using Pkg
+Pkg.activate("../..")
 using TimerOutputs, Statistics
 include("peps.jl")
 # get basic simulation parameters 
@@ -26,15 +28,15 @@ H = makeH_XXZ(Nx, Ny, J)
     A = gaugeColumn(A, col, :left; mindim=1, maxdim=chi)
 end=#
 # run heaviest functions one time to make Julia compile everything
-Ls = buildLs(A, H; mindim=1, maxdim=chi)
+Ls = buildLs(A, H; mindim=chi, maxdim=chi)
 @info "Built first Ls"
-Rs = buildRs(A, H; mindim=1, maxdim=chi)
+Rs = buildRs(A, H; mindim=chi, maxdim=chi)
 @info "Built first Rs"
-A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=0, mindim=1, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
-A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=0, mindim=1, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
+A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
+A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 
 # actual profiling run
-(tL, tR), tS, bytes, gctime, memallocs = @timed doSweeps(A, Ls, Rs, H; mindim=1, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=10)
+A, tS, bytes, gctime, memallocs = @timed doSweeps(A, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=10)
 println("Done sweeping CPU $tS")
 flush(stdout)
 flush(io)
@@ -59,7 +61,7 @@ cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simp
 cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 
 # actual profiling run
-(tL, tR), tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=10)
+cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=10)
 println("Done sweeping GPU $tS")
 flush(stdout)
 flush(io)
