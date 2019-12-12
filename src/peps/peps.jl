@@ -44,7 +44,7 @@ mutable struct PEPS
         new(Nx, Ny, p)
     end
 end
-
+Base.eltype(A::PEPS) = eltype(A.A_[1,1])
 include("environments.jl")
 include("ancillaries.jl")
 include("gauge.jl")
@@ -303,13 +303,15 @@ function combine(Aorig::ITensor, Anext::ITensor, tags::String)::ITensor
 end
 
 function reconnect(combiner_ind::Index, environment::ITensor)
-    environment_combiner        = findIndex(environment, "Site")
-    new_combiner, combinded_ind = combiner(IndexSet(combiner_ind, prime(combiner_ind)), tags="Site")
+    environment_combiner        = findindex(environment, "Site")
+    new_combiner, combined_ind  = combiner(IndexSet(combiner_ind, prime(combiner_ind)), tags="Site")
     combiner_transfer           = δ(combined_ind, environment_combiner)
-    return new_combiner*combiner_transfer
+    #return new_combiner*combiner_transfer
+    replaceindex!(new_combiner, combined_ind, environment_combiner)
+    return new_combiner
 end
 
-function buildN(A::PEPS, L::Environments, R::Environments, IEnvs, row::Int, col::Int)::ITensor
+function buildN(A::PEPS, L::Environments, R::Environments, IEnvs, row::Int, col::Int, ϕ::ITensor)::ITensor
     Ny, Nx   = size(A)
     is_gpu   = !(data(store(A[1,1])) isa Array)
     N        = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
@@ -324,6 +326,7 @@ function buildN(A::PEPS, L::Environments, R::Environments, IEnvs, row::Int, col:
         ci = commonindex(A[row, col], A[row, col-1])
         workingN *= multiply_side_ident(A[row, col], ci, copy(L.I[row])) 
     end
+    workingN *= ϕ
     if col < Nx
         ci = commonindex(A[row, col], A[row, col+1])
         workingN *= multiply_side_ident(A[row, col], ci, copy(R.I[row])) 
@@ -336,8 +339,6 @@ function multiply_side_ident(A::ITensor, ci::Index, side_I::ITensor)
     is_gpu      = !(data(store(A)) isa Array)
     scmb        = findindex(side_I, "Site")
     acmb, acmbi = combiner(IndexSet(ci, ci'), tags="Site")
-    #delt        = δ(acmbi, scmb)
-    #msi         = side_I * delt * acmb
     replaceindex!(acmb, acmbi, scmb)
     msi         = side_I * acmb
     return msi
@@ -429,7 +430,7 @@ function sum_rows_in_col(A::PEPS, L::Environments, R::Environments, H::Operator,
     return Hterm
 end
 
-function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side )
+function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol, ϕ::ITensor )
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
     HI = is_gpu ? cuITensor(1.0) : ITensor(1.0)
@@ -451,6 +452,8 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side )
     replaceindex!(acmb, acmbi, cmb)
     op = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
     op = is_gpu ? cuITensor(op) : op
+    HI *= ϕ
+    IH *= ϕ
     HI *= op
     IH *= op
     HI *= E.I[row] * acmb
@@ -465,17 +468,18 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side )
         HI *= AA * E.I[work_row]
         IH *= E.H[work_row] * AA
     end
-    AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IH), AAinds)
     @assert hasinds(AAinds, inds(IH))
     return [IH]
 end
 
-function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int)
+function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int, ϕ::ITensor)
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
-    col == 1  && return buildHIedge(A, R, row, col, :left)
-    col == Nx && return buildHIedge(A, L, row, col, :right)
+    col == 1  && return buildHIedge(A, R, row, col, :left, ϕ)
+    col == Nx && return buildHIedge(A, L, row, col, :right, ϕ)
     HLI_a = is_gpu ? cuITensor(1.0) : ITensor(1.0)
     HLI_b = is_gpu ? cuITensor(1.0) : ITensor(1.0)
     IHR_a = is_gpu ? cuITensor(1.0) : ITensor(1.0)
@@ -505,9 +509,11 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int)
     racmb, racmbi = combiner(IndexSet(rci, rci'), tags="Site")
     replaceindex!(lacmb, lacmbi, lcmb)
     replaceindex!(racmb, racmbi, rcmb)
-    HLI  *= L.H[row] * lacmb 
-    HLI  *= R.I[row] * racmb 
+    HLI  *= L.H[row] * lacmb
+    HLI  *= ϕ
+    HLI  *= R.I[row] * racmb
     IHR  *= L.I[row] * lacmb 
+    IHR  *= ϕ
     IHR  *= R.H[row] * racmb 
     op = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
     HLI *= op
@@ -531,7 +537,8 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int)
     HLI *= HLI_b
     IHR *= IHR_a
     IHR *= IHR_b
-    AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IHR), AAinds)
     @assert hasinds(inds(HLI), AAinds)
     @assert hasinds(AAinds, inds(IHR))
@@ -539,11 +546,12 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int)
     return [HLI, IHR]
 end
 
-function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row::Int, col::Int)::Vector{ITensor} 
+function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
     vTerms = ITensor[]#fill(ITensor(), length(H))
-    AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    AAinds = IndexSet(prime(ϕ))
     dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
     @inbounds for opcode in 1:length(H)
         thisVert = dummy 
@@ -564,6 +572,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
                 msi = multiply_side_ident(A[row, col], ci, copy(L.I[row]))
                 thisVert *= msi
             end
+            thisVert *= ϕ
             if col < Nx
                 ci = commonindex(A[row, col], A[row, col+1])
                 msi = multiply_side_ident(A[row, col], ci, copy(R.I[row]))
@@ -576,29 +585,30 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             high_row = op_row_b
             AIL = low_row > 0 ? AI[:below][low_row] : dummy 
             AIH = high_row < Ny ? AI[:above][end - high_row] : dummy 
+            sA   = findindex(A[op_row_a, col], "Site")
+            op_a = replaceindex!(copy(H[opcode].ops[1]), H[opcode].site_ind, sA)
+            op_a = replaceindex!(op_a, H[opcode].site_ind', sA')
+            sB   = findindex(A[op_row_b, col], "Site")
+            op_b = replaceindex!(copy(H[opcode].ops[2]), H[opcode].site_ind, sB)
+            op_b = replaceindex!(op_b, H[opcode].site_ind', sB')
             thisVert = AIH
             if col > 1
                 ci  = commonindex(A[op_row_b, col], A[op_row_b, col-1])
                 msi = multiply_side_ident(A[op_row_b, col], ci, copy(L.I[op_row_b]))
                 thisVert *= msi 
             end
+            thisVert *= A[op_row_b, col] * op_b * dag(A[op_row_b, col])'
             if col < Nx
                 ci  = commonindex(A[op_row_b, col], A[op_row_b, col+1])
                 msi = multiply_side_ident(A[op_row_b, col], ci, copy(R.I[op_row_b]))
                 thisVert *= msi
             end
-            sA = findindex(A[op_row_a, col], "Site")
-            op_a = replaceindex!(copy(H[opcode].ops[1]), H[opcode].site_ind, sA)
-            op_a = replaceindex!(op_a, H[opcode].site_ind', sA')
-            sB = findindex(A[op_row_b, col], "Site")
-            op_b = replaceindex!(copy(H[opcode].ops[2]), H[opcode].site_ind, sB)
-            op_b = replaceindex!(op_b, H[opcode].site_ind', sB')
-            thisVert *= A[op_row_b, col] * op_b * dag(A[op_row_b, col])'
             if col > 1
                 ci  = commonindex(A[op_row_a, col], A[op_row_a, col-1])
                 msi = multiply_side_ident(A[op_row_a, col], ci, copy(L.I[op_row_a]))
                 thisVert *= msi 
             end
+            thisVert *= ϕ
             if col < Nx
                 ci  = commonindex(A[op_row_a, col], A[op_row_a, col+1])
                 msi = multiply_side_ident(A[op_row_a, col], ci, copy(R.I[op_row_a]))
@@ -634,6 +644,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
                 msi = multiply_side_ident(A[op_row_b, col], ci, copy(L.I[op_row_b]))
                 thisVert *= msi 
             end
+            thisVert *= ϕ
             if col < Nx
                 ci  = commonindex(A[op_row_b, col], A[op_row_b, col+1])
                 msi = multiply_side_ident(A[op_row_b, col], ci, copy(R.I[op_row_b]))
@@ -651,12 +662,13 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
     return vTerms
 end
 
-function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::Int, col::Int)::Vector{ITensor} 
+function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
     fTerms = Vector{ITensor}(undef, length(H))
     dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
-    AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    AAinds = IndexSet(prime(ϕ))
     @inbounds for opcode in 1:length(H)
         thisField = dummy 
         op_row    = H[opcode].sites[1][1]
@@ -674,6 +686,7 @@ function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::I
                 ci = commonindex(A[row, col], A[row, col-1])
                 thisField *= multiply_side_ident(A[row, col], ci, copy(L.I[row]))
             end
+            thisField *= ϕ
             if col < Nx
                 ci = commonindex(A[row, col], A[row, col+1])
                 thisField *= multiply_side_ident(A[row, col], ci, copy(R.I[row]))
@@ -691,6 +704,7 @@ function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::I
                 msi = multiply_side_ident(A[row, col], ci, copy(L.I[row]))
                 thisField *= msi 
             end
+            thisField *= ϕ
             if col < Nx
                 ci  = commonindex(A[row, col], A[row, col+1])
                 msi = multiply_side_ident(A[row, col], ci, copy(R.I[row]))
@@ -710,11 +724,12 @@ function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::I
     return fTerms
 end
 
-function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, row::Int, col::Int)::Vector{ITensor} 
+function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
     lTerms = Vector{ITensor}(undef, length(H))
-    AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    AAinds = IndexSet(prime(ϕ))
     dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
     @inbounds for opcode in 1:length(H)
         op_row_b = H[opcode].sites[2][1]
@@ -734,6 +749,7 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
             end
             thisHori = ancL
             thisHori *= L.InProgress[row, opcode]
+            thisHori *= ϕ
             if col < Nx
                 ci = commonindex(A[row, col], A[row, col+1])
                 thisHori *= multiply_side_ident(A[row, col], ci, copy(R.I[row]))
@@ -755,8 +771,9 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
             end
             uih = uniqueinds(thisHori, L.InProgress[row, opcode])
             uil = uniqueinds(L.InProgress[row, opcode], thisHori)
-            thisHori = thisHori * L.InProgress[row, opcode]
-            thisHori = thisHori * op_b
+            thisHori *= L.InProgress[row, opcode]
+            thisHori *= ϕ
+            thisHori *= op_b
         end
         @assert hasinds(inds(thisHori), AAinds)
         @assert hasinds(AAinds, inds(thisHori))
@@ -765,11 +782,12 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
     return lTerms
 end
 
-function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H, row::Int, col::Int)::Vector{ITensor} 
+function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
     is_gpu = !(data(store(A[1,1])) isa Array)
     rTerms = Vector{ITensor}(undef, length(H))
-    AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    AAinds = IndexSet(prime(ϕ))
     dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
     @inbounds for opcode in 1:length(H)
         op_row_a = H[opcode].sites[1][1]
@@ -789,6 +807,7 @@ function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H,
             end
             thisHori = ancR
             thisHori *= R.InProgress[row, opcode]
+            thisHori *= ϕ
             if col > 1
                 ci = commonindex(A[row, col], A[row, col-1])
                 thisHori *= multiply_side_ident(A[row, col], ci, copy(L.I[row]))
@@ -809,6 +828,7 @@ function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H,
                 thisHori *= multiply_side_ident(A[row, col], ci, L.I[row])
             end
             thisHori *= R.InProgress[row, opcode]
+            thisHori *= ϕ
             thisHori *= op_a 
         end
         @assert hasinds(inds(thisHori), AAinds)
@@ -818,15 +838,15 @@ function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H,
     return rTerms
 end
 
-function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int )
+function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int, ϕ::ITensor; verbose::Bool=false)
     field_H_terms = getDirectional(vcat(H[:, col]...), Field)
     vert_H_terms  = getDirectional(vcat(H[:, col]...), Vertical)
     term_count    = 1 + length(field_H_terms) + length(vert_H_terms)
     Ny, Nx        = size(A)
     @timeit "build Ns" begin
-        N   = buildN(A, L, R, AncEnvs[:I], row, col)
+        N   = buildN(A, L, R, AncEnvs[:I], row, col, ϕ)
     end
-    den = scalar(collect(A[row, col] * N * dag(A[row, col])'))
+    den = scalar(collect(N * dag(ϕ)'))
     local left_H_terms, right_H_terms
     if col > 1
         left_H_terms = getDirectional(vcat(H[:, col - 1]...), Horizontal)
@@ -843,58 +863,67 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
     term_counter = 1
     @debug "\t\tBuilding I*H and H*I row $row col $col"
     @timeit "build HIs" begin
-        HIs = buildHIs(A, L, R, row, col)
+        HIs = buildHIs(A, L, R, row, col, ϕ)
         Hs[term_counter:term_counter+length(HIs)-1] = HIs
         term_counter += length(HIs)
-        #=println("--- HI TERMS ---")
-        for HI in HIs
-            hit = scalar(A[row, col] * HI * dag(A[row, col]'))
-            println(scalar(A[row, col] * HI * dag(A[row, col])'))
-        end=#
+        if verbose
+            println("--- HI TERMS ---")
+            for HI in HIs
+                println(scalar(HI * dag(ϕ)'))
+            end
+        end
     end
     @debug "\t\tBuilding vertical H terms row $row col $col"
     @timeit "build vertical terms" begin
-        vTs = verticalTerms(A, L, R, AncEnvs[:I], AncEnvs[:V], vert_H_terms, row, col) 
+        vTs = verticalTerms(A, L, R, AncEnvs[:I], AncEnvs[:V], vert_H_terms, row, col, ϕ) 
         Hs[term_counter:term_counter+length(vTs) - 1] = vTs
         term_counter += length(vTs)
-        #=println( "--- vT TERMS ---")
-        for vT in vTs
-            println(scalar(A[row, col] * vT * dag(A[row, col])'))
-        end=#
+        if verbose
+            println( "--- vT TERMS ---")
+            for vT in vTs
+                println(scalar(vT * dag(ϕ)'))
+            end
+        end
     end
     @debug "\t\tBuilding field H terms row $row col $col"
     @timeit "build field terms" begin
-        fTs = fieldTerms(A, L, R, AncEnvs[:I], AncEnvs[:F], field_H_terms, row, col)
+        fTs = fieldTerms(A, L, R, AncEnvs[:I], AncEnvs[:F], field_H_terms, row, col, ϕ)
         Hs[term_counter:term_counter+length(fTs) - 1] = fTs[:]
         term_counter += length(fTs)
-        #=println( "--- fT TERMS ---")
-        for fT in fTs
-            println(scalar(A[row, col] * fT * dag(A[row, col])'))
-        end=#
+        if verbose
+            println( "--- fT TERMS ---")
+            for fT in fTs
+                println(scalar(fT * dag(ϕ)'))
+            end
+        end
     end
     if col > 1
         @debug "\t\tBuilding left H terms row $row col $col"
         @timeit "build left terms" begin
-            lTs = connectLeftTerms(A, L, R, AncEnvs[:I], AncEnvs[:L], left_H_terms, row, col)
+            lTs = connectLeftTerms(A, L, R, AncEnvs[:I], AncEnvs[:L], left_H_terms, row, col, ϕ)
             Hs[term_counter:term_counter+length(lTs) - 1] = lTs[:]
             term_counter += length(lTs)
-            #=println( "--- lT TERMS ---")
-            for lT in lTs
-                println(scalar(A[row, col] * lT * dag(A[row, col])'))
-            end=#
+            if verbose
+                println( "--- lT TERMS ---")
+                for lT in lTs
+                    println(scalar(lT * dag(ϕ)'))
+                end
+            end
         end
         @debug "\t\tBuilt left terms"
     end
     if col < Nx
         @debug "\t\tBuilding right H terms row $row col $col"
         @timeit "build right terms" begin
-            rTs = connectRightTerms(A, L, R, AncEnvs[:I], AncEnvs[:R], right_H_terms, row, col)
+            rTs = connectRightTerms(A, L, R, AncEnvs[:I], AncEnvs[:R], right_H_terms, row, col, ϕ)
             Hs[term_counter:term_counter+length(rTs) - 1] = rTs[:]
             term_counter += length(rTs)
-            #=println( "--- rT TERMS ---")
-            for rT in rTs
-                println(scalar(A[row, col] * rT * dag(A[row, col])'))
-            end=#
+            if verbose
+                println( "--- rT TERMS ---")
+                for rT in rTs
+                    println(scalar(rT * dag(ϕ)'))
+                end
+            end
         end
         @debug "\t\tBuilt right terms"
     end
@@ -1077,11 +1106,21 @@ function updateAncs(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::
 end
 
 struct ITensorMap
-  A::ITensor
+  A::PEPS
+  H::Matrix{Vector{Operator}}
+  L::Environments
+  R::Environments
+  AncEnvs::NamedTuple
+  row::Int
+  col::Int
 end
 Base.eltype(M::ITensorMap)  = eltype(M.A)
-Base.size(M::ITensorMap)    = dim(findinds(M.A,("",0)))
-(M::ITensorMap)(v::ITensor) = noprime(M.A*v)
+Base.size(M::ITensorMap)    = dim(M.A[M.row, M.col])
+function (M::ITensorMap)(v::ITensor) 
+    Hs, N  = buildLocalH(M.A, M.L, M.R, M.AncEnvs, M.H, M.row, M.col, v)
+    localH = sum(Hs)
+    return noprime(localH)
+end
 
 function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int; kwargs...)
     Ny, Nx        = size(A)
@@ -1090,25 +1129,29 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
     vert_H_terms  = getDirectional(vcat(H[:, col]...), Vertical)
     @debug "\tBuilding H for col $col row $row"
     @timeit "build H" begin
-        Hs, N = buildLocalH(A, L, R, AncEnvs, H, row, col)
+        Hs, N = buildLocalH(A, L, R, AncEnvs, H, row, col, A[row, col])
     end
-    initial_N = real(scalar(collect(A[row, col] * N * dag(A[row, col])')))
+    initial_N = real(scalar(collect(N * dag(A[row, col])')))
     @timeit "sum H terms" begin
         localH = sum(Hs)
     end
-    initial_E = real(scalar(collect(A[row, col] * deepcopy(localH) * dag(A[row, col])')))
+    initial_E = real(scalar(collect(deepcopy(localH) * dag(A[row, col])')))
     @info "Initial energy at row $row col $col : $(initial_E/(initial_N*Nx*Ny)) and norm : $initial_N"
     @debug "\tBeginning davidson for col $col row $row"
-    λ, new_A = davidson(ITensorMap(localH), A[row, col]; miniter=2, kwargs...)
-    new_E    = real(scalar(collect(new_A * localH * dag(new_A)')))
-    new_N    = real(scalar(collect(new_A * N * dag(new_A)')))
+    mapper   = ITensorMap(A, H, L, R, AncEnvs, row, col)
+    λ, new_A = davidson(mapper, A[row, col]; kwargs...)
+    new_E    = λ #real(scalar(collect(new_A * localH * dag(new_A)')))
+    N        = buildN(A, L, R, AncEnvs[:I], row, col, new_A)
+    new_N    = real(scalar(collect(N * dag(new_A)')))
+    #=println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
     if new_E/new_N > initial_E/initial_N
         @info "badness"
         new_A = deepcopy(A[row, col])
-        new_E = real(scalar(collect(new_A * localH * dag(new_A)')))
-        new_N = real(scalar(collect(new_A * N * dag(new_A)')))
-    end
+        new_E = initial_E 
+        new_N = initial_N #real(scalar(collect(N * dag(new_A)')))
+    end=#
     @info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
+    @timeit "restore intraColumnGauge" begin
         if row < Ny
             @debug "\tRestoring intraColumnGauge for col $col row $row"
             cmb_is   = IndexSet(findindex(A[row, col], "Site"))
@@ -1149,15 +1192,16 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
         else
             A[row, col] = initial_N > 0 ? new_A/√new_N : new_A
         end
+    end
     return A, AncEnvs
 end
 
 function measureEnergy(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int)::Tuple{Float64, Float64}
     Ny, Nx    = size(A)
-    Hs, N     = buildLocalH(A, L, R, AncEnvs, H, row, col)
-    initial_N = collect(A[row, col] * N * dag(A[row, col])')
+    Hs, N     = buildLocalH(A, L, R, AncEnvs, H, row, col, A[row, col])
+    initial_N = collect(N * dag(A[row, col])')
     localH    = sum(Hs)
-    initial_E = collect(A[row, col] * localH * dag(A[row, col])')
+    initial_E = collect(localH * dag(A[row, col])')
     return real(scalar(initial_N)), real(scalar(initial_E))/real(scalar(initial_N))
 end
 
@@ -1263,5 +1307,41 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
         end
     end
     return A, Ls, Rs
+end
+
+function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0.)
+    for sweep in sweep_start:sweep_count
+        if iseven(sweep)
+            println("SWEEP RIGHT $sweep")
+            A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+        else
+            println("SWEEP LEFT $sweep")
+            A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+        end
+        flush(stdout)
+        if sweep == simple_update_cutoff - 1
+            for col in reverse(2:Nx)
+                A = gaugeColumn(A, col, :left; mindim=1, maxdim=chi)
+            end
+            Ls = buildLs(A, H; mindim=1, maxdim=chi)
+            Rs = buildRs(A, H; mindim=1, maxdim=chi)
+        end
+        if sweep == sweep_count
+            A_ = deepcopy(A)
+            L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim)
+            R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim)
+            x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            display(z_mag)
+            println()
+            v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            display(v_mag)
+            println()
+            h_mag = measureSmagHorizontal(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            display(h_mag)
+            println()
+        end
+    end
+    return A
 end
 
