@@ -79,9 +79,9 @@ function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
         ivs = vcat(ivs, si(spin_side))
         A[ii][ivs...] = 1.0
     end
-    for row in 1:Ny, col in 1:Nx
+    #=for row in 1:Ny, col in 1:Nx
         A[row, col] += randomITensor(inds(A[row, col]))/10.0
-    end
+    end=#
     return A
 end
 
@@ -1139,12 +1139,12 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
     @info "Initial energy at row $row col $col : $(initial_E/(initial_N*Nx*Ny)) and norm : $initial_N"
     @debug "\tBeginning davidson for col $col row $row"
     mapper   = ITensorMap(A, H, L, R, AncEnvs, row, col)
-    λ, new_A = davidson(mapper, A[row, col]; kwargs...)
+    λ, new_A = davidson(mapper, A[row, col]; miniter=2, kwargs...)
     new_E    = λ #real(scalar(collect(new_A * localH * dag(new_A)')))
     N        = buildN(A, L, R, AncEnvs[:I], row, col, new_A)
     new_N    = real(scalar(collect(N * dag(new_A)')))
-    #=println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
-    if new_E/new_N > initial_E/initial_N
+    println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
+    #=if new_E/new_N > initial_E/initial_N
         @info "badness"
         new_A = deepcopy(A[row, col])
         new_E = initial_E 
@@ -1214,7 +1214,7 @@ function sweepColumn(A::PEPS, L::Environments, R::Environments, H, col::Int; kwa
         R_s = buildRs(A, H; kwargs...)
         EAncEnvs = buildAncs(A, L_s[col - 1], R_s[col + 1], H, col)
         N, E = measureEnergy(A, L_s[col - 1], R_s[col + 1], EAncEnvs, H, 1, col)
-        println("Energy at mid:", E/(Nx*Ny))
+        println("Energy at MID: ", E/(Nx*Ny))
     end
     @debug "Beginning buildAncs for col $col" 
     AncEnvs = buildAncs(A, L, R, H, col)
@@ -1321,10 +1321,10 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
         flush(stdout)
         if sweep == simple_update_cutoff - 1
             for col in reverse(2:Nx)
-                A = gaugeColumn(A, col, :left; mindim=1, maxdim=chi)
+                A = gaugeColumn(A, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff)
             end
-            Ls = buildLs(A, H; mindim=1, maxdim=chi)
-            Rs = buildRs(A, H; mindim=1, maxdim=chi)
+            Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
+            Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
         end
         if sweep == sweep_count
             A_ = deepcopy(A)
