@@ -112,7 +112,7 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
             ratio = abs(scalar(collect(aqr_overlap)))/abs(scalar(collect(a_norm)))
         end
         push!(ratio_history, ratio)
-        if ratio > best_overlap || iter == 1
+        if ratio > best_overlap || iter == 0
             best_Q = deepcopy(Q)
             best_R = deepcopy(R)
             best_overlap = ratio
@@ -133,13 +133,14 @@ function gaugeQR(A::PEPS, col::Int, side::Symbol; kwargs...)
             end
             for row in 1:Ny
                 Q[row]  = Q_[row] 
-                salt    = is_gpu ? cuITensor(randomITensor(inds(Q[row]))) : randomITensor(inds(Q[row]))
-                Q[row] += salt/(scalar(dag(salt)*salt))
+                salt    = is_gpu ? cuITensor(randomITensor(inds(Q[row])))/100.0 : randomITensor(inds(Q[row]))/100.0
+                salt_d  = ratio < 0.5 ? norm(salt) : 10.0*norm(salt)
+                Q[row] += salt/salt_d
                 Q[row] /= sqrt(norm(Q[row])) 
             end
         end
     end
-    @info best_overlap
+    @info "best overlap: ", best_overlap
     return best_Q, best_R, next_col_inds, QR_inds, dummy_nexts
 end
 
