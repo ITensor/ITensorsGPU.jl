@@ -19,7 +19,7 @@ J  = 1.0
 sites = siteinds("S=1/2",Nx*Ny)
 
 ## CPU RUN
-A = checkerboardPEPS(sites, Nx, Ny, mindim=chi)
+#=A = checkerboardPEPS(sites, Nx, Ny, mindim=chi)
 H = makeH_XXZ(Nx, Ny, J)
 @info "Built A and H"
 
@@ -41,7 +41,7 @@ println("Done sweeping CPU $tS")
 flush(stdout)
 flush(io)
 ## GPU RUN
-
+=#
 # disallow scalar indexing on GPU, which is very slow 
 CuArrays.allowscalar(false)
 A = checkerboardPEPS(sites, Nx, Ny, mindim=chi)
@@ -53,15 +53,15 @@ H  = makeCuH_XXZ(Nx, Ny, J)
 
 # run heaviest functions one time to make Julia compile everything
 @info "Built cA and H"
-Ls = buildLs(cA, H; mindim=chi, maxdim=chi)
+Ls = buildLs(cA, H; mindim=1, maxdim=chi)
 @info "Built first Ls"
-Rs = buildRs(cA, H; mindim=chi, maxdim=chi)
+Rs = buildRs(cA, H; mindim=1, maxdim=chi)
 @info "Built first Rs"
 cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 
 # actual profiling run
-cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=10)
+cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50)
 println("Done sweeping GPU $tS")
 flush(stdout)
 flush(io)

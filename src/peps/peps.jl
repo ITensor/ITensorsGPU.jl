@@ -79,9 +79,9 @@ function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
         ivs = vcat(ivs, si(spin_side))
         A[ii][ivs...] = 1.0
     end
-    #=for row in 1:Ny, col in 1:Nx
+    for row in 1:Ny, col in 1:Nx
         A[row, col] += randomITensor(inds(A[row, col]))/10.0
-    end=#
+    end
     return A
 end
 
@@ -127,11 +127,15 @@ Base.size(A::PEPS) = (A.Ny, A.Nx)
 Base.getindex(A::PEPS, i::Integer, j::Integer) = getindex(tensors(A), i, j)::ITensor
 Base.getindex(A::PEPS, ::Colon,    j::Integer) = getindex(tensors(A), :, j)::Vector{ITensor}
 Base.getindex(A::PEPS, i::Integer, ::Colon)    = getindex(tensors(A), i, :)::Vector{ITensor}
+Base.getindex(A::PEPS, ::Colon,    j::UnitRange{Int}) = getindex(tensors(A), :, j)::Matrix{ITensor}
+Base.getindex(A::PEPS, i::UnitRange{Int}, ::Colon)    = getindex(tensors(A), i, :)::Matrix{ITensor}
 Base.getindex(A::PEPS, i::Integer)             = getindex(tensors(A), i)::ITensor
 
 Base.setindex!(A::PEPS, val::ITensor, i::Integer, j::Integer)       = setindex!(tensors(A), val, i, j)
 Base.setindex!(A::PEPS, vals::Vector{ITensor}, ::Colon, j::Integer) = setindex!(tensors(A), vals, :, j)
 Base.setindex!(A::PEPS, vals::Vector{ITensor}, i::Integer, ::Colon) = setindex!(tensors(A), vals, i, :)
+Base.setindex!(A::PEPS, vals::Matrix{ITensor}, ::Colon, j::UnitRange{Int}) = setindex!(tensors(A), vals, :, j)
+Base.setindex!(A::PEPS, vals::Matrix{ITensor}, i::UnitRange{Int}, ::Colon) = setindex!(tensors(A), vals, i, :)
 
 Base.copy(A::PEPS)    = PEPS(A.Nx, A.Ny, copy(tensors(A)))
 Base.similar(A::PEPS) = PEPS(A.Nx, A.Ny, similar(tensors(A)))

@@ -202,3 +202,21 @@ function gaugeColumn( A::PEPS, col::Int, side::Symbol; kwargs...)
     end
     return A
 end
+
+function gaugeColumnForInsert( A::PEPS, col::Int, side::Symbol; kwargs...)
+    Ny, Nx = size(A)
+
+    prev_col_inds = Vector{Index}(undef, Ny)
+    next_col_inds = Vector{Index}(undef, Ny)
+
+    next_col   = side == :left ? col - 1 : col + 1
+    prev_col   = side == :left ? col + 1 : col - 1
+    left_edge  = col == 1
+    right_edge = col == Nx
+    is_gpu = !(data(store(A[1,1])) isa Array)
+    
+    @timeit "gauge QR" begin
+        Q, R, next_col_inds, QR_inds, dummy_next_inds = gaugeQR(A, col, side; kwargs...)
+    end
+    return A, Q, R, dummy_next_inds
+end
