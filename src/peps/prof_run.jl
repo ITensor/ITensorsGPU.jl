@@ -1,6 +1,8 @@
-using Profile, StatProfilerHTML, TimerOutputs
+using Pkg
+Pkg.activate("../..")
+using Profile, TimerOutputs
 include("peps.jl")
-function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_count::Int=10, cutoff::Float64=0.)
+#=function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_count::Int=10, cutoff::Float64=0.)
     Ls, tL, bytes, gctime, memallocs = @timed buildLs(A, H; mindim=mindim, maxdim=maxdim)
     Rs, tR, bytes, gctime, memallocs = @timed buildRs(A, H; mindim=mindim, maxdim=maxdim)
     for sweep in 1:sweep_count
@@ -35,7 +37,7 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
         end
     end
     return tL, tR
-end
+end=#
 
 Nx  = 6
 Ny  = 6
@@ -44,7 +46,7 @@ io = open("prof_$(string(Nx))_$mdim.txt", "w+")
 logger = SimpleLogger(io)
 global_logger(logger)
 J  = 1.0
-sites = spinHalfSites(Nx*Ny)
+sites = siteinds("S=1/2",Nx*Ny)
 println("Beginning A")
 A = checkerboardPEPS(sites, Nx, Ny, mindim=mdim)
 cA = cuPEPS(A)
@@ -60,7 +62,4 @@ Rs = buildRs(cA, H; mindim=mdim, maxdim=mdim)
 @info "Built first Rs"
 cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; mindim=mdim, maxdim=mdim)
 cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; mindim=mdim, maxdim=mdim)
-Profile.init(n=10^10)
-@profile doSweeps(cA, Ls, Rs, H; mindim=mdim, maxdim=mdim)
-print_timer()
-statprofilehtml()
+doSweeps(cA, Ls, Rs, H; mindim=mdim, maxdim=mdim)
