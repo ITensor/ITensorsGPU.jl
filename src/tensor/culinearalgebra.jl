@@ -45,6 +45,7 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
               cutoff=cutoff,
               absoluteCutoff=absoluteCutoff,
               doRelCutoff=doRelCutoff)
+  spec = Spectrum(P,truncerr)
   dS = length(P)
   if dS < length(MS)
     MU = MU[:,1:dS]
@@ -66,7 +67,7 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   copyto!(MV_, vec(MV))
   S = Tensor(Dense(Sdata),Sinds)
   V = Tensor(Dense(MV_),Vinds)
-  return U,S,V
+  return U,S,V,spec
 end
 
 function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
@@ -85,6 +86,7 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   end
   DM_ = reverse(DM)
   truncerr, docut, DM = truncate!(DM_;maxdim=maxdim, cutoff=cutoff, absoluteCutoff=absoluteCutoff, doRelCutoff=doRelCutoff)
+  spec = Spectrum(DM,truncerr)
   dD = length(DM)
   dV = reverse(UM, dims=2)
   if dD < size(dV,2)
@@ -100,7 +102,7 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   copyto!(dV_, vec(dV))
   U = Tensor(Dense(dV_),Uinds)
   D = Tensor(Diag(real.(DM)),Dinds)
-  return U,D
+  return U,D,spec
 end
 
 function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}

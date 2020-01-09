@@ -18,13 +18,6 @@ Base.getindex(D::CuDense)       = collect(data(D))[]
 Base.getindex(D::CuDenseTensor) = store(D)[]
 LinearAlgebra.norm(T::CuDenseTensor) = norm(data(store(T)))
 
-#=function Base.promote_rule(::Type{<:CuDense{ElT1,CVec1}},
-                           ::Type{<:CuDense{ElT2,CVec2}}) where {ElT1,ElT2,CVec1,CVec2}
-  ElR  = promote_type(ElT1,ElT2)
-  VecR = promote_type(CVec1, CVec2)
-  return Dense{ElR,VecR}
-end=#
-
 # This is for type promotion for Scalar*Dense
 function Base.promote_rule(::Type{<:Dense{ElT1,CuVector{ElT1}}},
                            ::Type{ElT2}) where {ElT1,
@@ -41,17 +34,6 @@ function Base.permutedims(T::CuDenseTensor{<:Number,N},
   return Tp
 end
 
-# GROSS
-#=function permutedims!!(B::CuDenseTensor{ElT,0},
-                       A::CuDenseTensor{ElT,N},
-                       perm::NTuple{N,Int},
-                       f=(r,t)->permute!(r,t)) where {N, ElT<:Number}
-  Ais = inds(A)
-  Cis = permute(inds(A), perm)
-  Cs = f(B, A)
-  return Tensor(Dense(vec(Cs)), Cis) 
-end=#
-
 function Base.permutedims!(B::CuDenseTensor{<:Number, N},
                            A::CuDenseTensor{<:Number, N},
                            perm,
@@ -62,26 +44,14 @@ function Base.permutedims!(B::CuDenseTensor{<:Number, N},
   return Tensor(Dense(vec(Cs)), Bis) 
 end
 
-#=function Base.permutedims!(B::BT,
-                           A::AT,
-                           perm::NTuple{N,Int},
-                           f=(r,t)->permute!(r,t)) where {N, BT<:CuDenseTensor{<:Number, N}, AT<:CuDenseTensor{<:Number, N}}
-  Ais = inds(A)
-  Bis = permute(inds(A), perm)
-  Cs  = f(B, A)
-  return Tensor(Dense(vec(Cs)), Bis) 
-end=#
-
-function permutedims!!(B::CuDenseTensor{<:Number, N, <:CuDense},
-                       A::CuDenseTensor{<:Number, N, <:CuDense},
+function permutedims!!(B::Tensor{ElT,N,StoreT,IndsB},
+                       A::Tensor{ElT,N,StoreT,IndsA},
                        perm::NTuple{N,Int},
-                       f=(r,t)->permute!(r,t)) where {N}
+                       f::Function=(r,t)->permute!(r,t)) where {N,ElT,IndsB,IndsA,StoreT<:CuDense{ElT}}
   Ais = inds(A)
   Bis = permute(inds(A), perm)
   B = f(B, A)
-  #B = Tensor(Dense(vec(Cs)), Bis)
   return B
-  #return Tensor(Dense(vec(Cs)), Bis) 
 end
 
 function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
@@ -108,6 +78,13 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   copyto!(B.store.data, reshape(reshapeBdata, length(B.store.data)))
   return vec(reshapeBdata) 
 end
+
+function Base.similar(::Type{<:CuDenseTensor{ElT}},
+                      inds) where {ElT}
+    storage_arr = CuVector{ElT}(undef,dim(inds)) 
+    return Tensor(Dense(storage_arr),inds)
+end
+
 
 function outer!(R::CuDenseTensor,
                 T1::CuDenseTensor,

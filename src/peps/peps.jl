@@ -302,8 +302,8 @@ end
 
 
 function combine(Aorig::ITensor, Anext::ITensor, tags::String)::ITensor
-    ci  = commonindex(Aorig, Anext)
-    cmb,cmbi = combiner(IndexSet(ci, prime(ci)), tags=tags)
+    ci        = commonindex(Aorig, Anext)
+    cmb, cmbi = combiner(IndexSet(ci, prime(ci)), tags=tags)
     return cmb
 end
 
@@ -1243,7 +1243,17 @@ function rightwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environmen
     prev_cmb_r = Vector{ITensor}(undef, Ny)
     next_cmb_r = Vector{ITensor}(undef, Ny)
     sweep::Int = get(kwargs, :sweep, 0)
-    @inbounds for col in 1:Nx-1
+    sweep_width::Int = get(kwargs, :sweep_width, Nx)
+    offset    = mod(Nx, 2)
+    midpoint  = div(Nx, 2)
+    rightmost = sweep_width == Nx ? Nx - 1 : midpoint + div(sweep_width, 2) + offset
+    leftmost  = sweep_width == Nx ? 1 : midpoint - div(sweep_width, 2)
+    if leftmost > 1 
+        for row in 1:Ny
+            prev_cmb_r[row] = reconnect(commonindex(A[row, leftmost], A[row, leftmost-1]), Ls[leftmost-1].I[row])
+        end
+    end
+    @inbounds for col in leftmost:rightmost
         L = col == 1 ? dummyEnv : Ls[col - 1]
         @debug "Sweeping col $col"
         if sweep >= simple_update_cutoff
@@ -1283,7 +1293,17 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
     prev_cmb_l = Vector{ITensor}(undef, Ny)
     next_cmb_l = Vector{ITensor}(undef, Ny)
     sweep::Int = get(kwargs, :sweep, 0)
-    @inbounds for col in reverse(2:Nx)
+    sweep_width::Int = get(kwargs, :sweep_width, Nx)
+    offset    = mod(Nx, 2)
+    midpoint  = div(Nx, 2)
+    rightmost = midpoint + div(sweep_width, 2) + offset
+    leftmost  = sweep_width == Nx ? 2 : midpoint - div(sweep_width, 2)
+    if rightmost < Nx
+        for row in 1:Ny
+            prev_cmb_l[row] = reconnect(commonindex(A[row, rightmost], A[row, rightmost+1]), Rs[rightmost+1].I[row])
+        end
+    end
+    @inbounds for col in reverse(leftmost:rightmost)
         R = col == Nx ? dummyEnv : Rs[col + 1]
         @debug "Sweeping col $col"
         if sweep >= simple_update_cutoff

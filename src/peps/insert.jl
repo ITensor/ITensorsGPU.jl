@@ -65,8 +65,8 @@ function InsertTensors(A::PEPS, Rs::Vector{Environments}, Ls::Vector{Environment
     Hl = H[:, midpoint]
     H = hcat(H[:, 1:midpoint], Hr, Hl, H[:, midpoint+1:Nx])
     Nx += 2
-    A, Q_l, R_l, linds = gaugeColumnForInsert(A, midpoint - 1, :right; kwargs...)
-    A, Q_r, R_r, rinds = gaugeColumnForInsert(A, midpoint, :left; kwargs...)
+    A, Q_l, R_l, linds = gaugeColumnForInsert(A, midpoint + 1, :right; kwargs...)
+    A, Q_r, R_r, rinds = gaugeColumnForInsert(A, midpoint + 2, :left; kwargs...)
     A[:, midpoint + 1] = tensors(Q_l)
     A[:, midpoint + 2] = tensors(Q_r)
     Λı = deepcopy(R_l) # Lambdan
@@ -102,7 +102,9 @@ function InsertTensors(A::PEPS, Rs::Vector{Environments}, Ls::Vector{Environment
     #foreach(println, inds.(Λk))
     #foreach(println, inds.(Λm))
     Δconst = multMPO(Λk, Λm; kwargs...)
-    while abs(inner_product) < 0.95
+    println("Begin grad descent")
+    flush(stdout)
+    while abs(inner_product) < 0.95 && iter < 100
         tmp_Δ  = multMPO(X, Λȷ; kwargs...)
         tmp_Δ2 = multMPO(tmp_Δ, Λℓ; kwargs...)
         Δ      = sum([2.0*Δconst, -2.0*X, 2.0*tmp_Δ2])
@@ -111,20 +113,28 @@ function InsertTensors(A::PEPS, Rs::Vector{Environments}, Ls::Vector{Environment
         inner_product = overlap(tmp_Δ, Λm)
         iter  += 1
     end
-    @show X
-    @show R_r
-    XR  = multMPO(X, R_r; kwargs...)
-    @show Q_r
-    @show XR
-    XRQ = multMPO(XR, Q_r; kwargs...)
-    @show XRQ
-    A[:, midpoint+1] = tensors(XRQ)
-    println("Done insert")
-    for col in 1:Nx, row in 1:Ny
-        @show col, row, inds(A[row, col])
-        println()
-    end
+    println("Done grad descent")
     flush(stdout)
+    XR  = multMPO(X, R_r; kwargs...)
+    # must combine inds of QR
+    Q_r_cmbs = Vector{ITensor}(undef, Ny)
+    for row in 1:Ny
+        cmb_inds = IndexSet(uniqueindex(findinds(Q_r[row], "Site"), findinds(XR[row], "Site")), findindex(Q_r[row], "Link,r"))
+        Q_r_cmb, ci = combiner(cmb_inds, tags="Qcmb,Site,r$row")
+        Q_r_cmbs[row] = Q_r_cmb
+        Q_r[row] *= Q_r_cmb
+    end
+    XRQ = multMPO(XR, Q_r; kwargs...)
+    for row in 1:Ny
+        XRQ[row] *= Q_r_cmbs[row]
+    end
+    A[:, midpoint+1] = tensors(XRQ)
+    for row in 1:Ny
+        qr_ci = commonindex(A[row, midpoint], A[row, midpoint+1])
+        new_link = Index(dim(qr_ci), "Link,r,c$midpoint,r$row")
+        replaceindex!(A[row, midpoint], qr_ci, new_link)
+        replaceindex!(A[row, midpoint+1], qr_ci, new_link)
+    end
     return A, H
 end
 
@@ -137,7 +147,17 @@ function rightwardSweepToInsert(A::PEPS, Ls::Vector{Environments}, Rs::Vector{En
     next_cmb_r = Vector{ITensor}(undef, Ny)
     sweep::Int = get(kwargs, :sweep, 0)
     stop_col::Int = get(kwargs, :stop_col, div(Nx, 2))
-    @inbounds for col in 1:stop_col
+    sweep_width::Int = get(kwargs, :sweep_width, Nx)
+    offset    = mod(Nx, 2)
+    midpoint  = div(Nx, 2)
+    rightmost = midpoint
+    leftmost  = sweep_width == Nx ? 1 : midpoint - div(sweep_width, 2)
+    if leftmost > 1 
+        for row in 1:Ny
+            prev_cmb_r[row] = reconnect(commonindex(A[row, leftmost], A[row, leftmost-1]), Ls[leftmost-1].I[row])
+        end
+    end
+    @inbounds for col in leftmost:rightmost
         L = col == 1 ? dummyEnv : Ls[col - 1]
         @debug "Sweeping col $col"
         if sweep >= simple_update_cutoff
@@ -178,7 +198,12 @@ function rightwardSweepFromInsert(A::PEPS, Ls::Vector{Environments}, Rs::Vector{
     next_cmb_r = Vector{ITensor}(undef, Ny)
     sweep::Int = get(kwargs, :sweep, 0)
     start_col::Int = get(kwargs, :start_col, div(Nx, 2))
-    @inbounds for col in start_col:Nx
+    sweep_width::Int = get(kwargs, :sweep_width, Nx)
+    offset    = mod(Nx, 2)
+    midpoint  = div(Nx, 2)
+    rightmost = midpoint + div(sweep_width, 2) + offset
+    leftmost  = midpoint + 1
+    @inbounds for col in leftmost:rightmost
         L = col == 1 ? dummyEnv : Ls[col - 1]
         @debug "Sweeping col $col"
         if sweep >= simple_update_cutoff
@@ -251,20 +276,21 @@ function rightwardSweepFromInsert(A::PEPS, Ls::Vector{Environments}, Rs::Vector{
 end
 
 function doSweepsInsert(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0., insert_interval::Int=20)
-    Ny, Nx = size(A)
+    Ny, Nx      = size(A)
+    sweep_width = Nx
     for sweep in sweep_start:sweep_count
         insert_flag = mod(sweep, insert_interval) == 0
         if iseven(sweep)
             if !insert_flag
                 println("SWEEP RIGHT $sweep")
-                A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+                A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep_width=sweep_width, sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
             else
                 println("SWEEP RIGHT TO INSERT $sweep")
-                A, Ls, Rs = rightwardSweepToInsert(A, Ls, Rs, H; stopcol=div(Nx, 2), sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+                A, Ls, Rs = rightwardSweepToInsert(A, Ls, Rs, H; sweep_width=sweep_width, stopcol=div(Nx, 2), sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
             end
         else
             println("SWEEP LEFT $sweep")
-            A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+            A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep_width=sweep_width, sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
         end
         flush(stdout)
         if sweep == simple_update_cutoff - 1
@@ -277,12 +303,29 @@ function doSweepsInsert(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environmen
         if insert_flag
             A, H = InsertTensors(A, Rs, Ls, H; mindim=mindim, maxdim=maxdim, overlap_cutoff=0.999, cutoff=cutoff)
             Ny, Nx = size(A)
+            println(" Insert complete at Nx = $Nx, Ny = $Ny")
+            flush(stdout)
             sweep_width = Nx
             Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
             Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
-            rightwardSweepFromInsert(A, Ls, Rs, H; startcol=div(Nx, 2), sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+            println(" Rebuild of envs complete at Nx = $Nx, Ny = $Ny")
+            flush(stdout)
+            rightwardSweepFromInsert(A, Ls, Rs, H; sweep_width=sweep_width, startcol=div(Nx, 2), sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+            sweep_width = Nx
+            if sweep_width < Nx
+                midpoint = div(Nx, 2) 
+                barrier = midpoint + div(sweep_width, 2) + 2
+                barrier = barrier > Nx ? Nx : barrier
+                for col in reverse((midpoint + div(sweep_width, 2) + 1):barrier)
+                    A = gaugeColumn(A, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff)  
+                end
+                #Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
+                #Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
+            end
         end
-        if sweep == sweep_count
+        Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
+        Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
+        #=if sweep == sweep_count
             A_ = deepcopy(A)
             L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim)
             R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim)
@@ -296,7 +339,7 @@ function doSweepsInsert(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environmen
             h_mag = measureSmagHorizontal(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
             display(h_mag)
             println()
-        end
+        end=#
     end
     return A
 end

@@ -1,7 +1,7 @@
 using ITensors, ITensorsGPU
 
 function my_polar( T::ITensor, inds...; kwargs... )
-    U, S, V, u, v = svd(T, inds; kwargs...)
+    U, S, V, spec, u, v = svd(T, inds; kwargs...)
     replaceindex!(U, u, v)
     return U*V
 end

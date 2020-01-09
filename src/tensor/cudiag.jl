@@ -81,36 +81,36 @@ function contraction_output(T1::UniformDiagTensor,T2::DiagTensor{Elt2,<:CuDiag},
 end
 contraction_output(T1::DiagTensor{Elt1, <:CuDiag},T2::UniformDiagTensor,indsR) where {Elt1} = contraction_output(T2,T1,indsR)
 
-function _contract!(C::CuDenseTensor,Clabels,
-                    A::UniformDiagTensor,Alabels,
-                    B::CuDenseTensor,Blabels)
+function contract!(C::CuDenseTensor{<:Number, NC},Clabels,
+                   A::UniformDiagTensor{<:Number, NA},Alabels,
+                   B::CuDenseTensor{<:Number, NB},Blabels) where {NC, NA, NB}
     Bstore = data(store(B))
     Astore = data(store(A))
     Cstore = data(store(C))
     copyto!(Cstore, Astore.*Bstore)
 end
 
-function _contract!(C::CuDenseTensor,Clabels,
-                    A::CuDenseTensor,Alabels,
-                    B::UniformDiagTensor,Blabels)
+function contract!(C::CuDenseTensor{<:Number, NC},Clabels,
+                   A::CuDenseTensor{<:Number, NA},Alabels,
+                   B::UniformDiagTensor{<:Number, NB},Blabels) where {NC, NA, NB}
     Bstore = data(store(B))
     Astore = data(store(A))
     Cstore = data(store(C))
     copyto!(Cstore, Astore.*Bstore)
 end
 
-function _contract!(C::NonuniformCuDiagTensor{EltC,NC, IndsC},Clabels,
-                    A::UniformDiagTensor{EltA, NA, IndsA},Alabels,
-                    B::NonuniformCuDiagTensor{EltB, NB, IndsB},Blabels) where {EltC<:Number, EltB<:Number, EltA<:Number, NC, NB, NA, IndsA, IndsB, IndsC}
+function contract!(C::NonuniformCuDiagTensor{EltC,NC, IndsC},Clabels,
+                   A::UniformDiagTensor{EltA, NA, IndsA},Alabels,
+                   B::NonuniformCuDiagTensor{EltB, NB, IndsB},Blabels) where {EltC<:Number, EltB<:Number, EltA<:Number, NC, NB, NA, IndsA, IndsB, IndsC}
     Bstore = data(store(B))
     Astore = data(store(A))
     Cstore = data(store(C))
     copyto!(Cstore, Astore.*Bstore)
 end
 
-function _contract!(C::NonuniformCuDiagTensor{EltC, NC, IndsC},Clabels,
-                    B::NonuniformCuDiagTensor{EltB, NB, IndsB},Blabels,
-                    A::UniformDiagTensor{EltA, NA, IndsA},Alabels) where {EltC<:Number, EltB<:Number, EltA<:Number, NC, NB, NA, IndsA, IndsB, IndsC}
+function contract!(C::NonuniformCuDiagTensor{EltC, NC, IndsC},Clabels,
+                   B::NonuniformCuDiagTensor{EltB, NB, IndsB},Blabels,
+                   A::UniformDiagTensor{EltA, NA, IndsA},Alabels) where {EltC<:Number, EltB<:Number, EltA<:Number, NC, NB, NA, IndsA, IndsB, IndsC}
     Bstore = data(store(B))
     Astore = data(store(A))
     Cstore = data(store(C))
@@ -118,24 +118,24 @@ function _contract!(C::NonuniformCuDiagTensor{EltC, NC, IndsC},Clabels,
 end
 
 # Dense * NonuniformCuDiag
-function _contract!(C::CuDenseTensor,Clabels,
-                    A::NonuniformCuDiagTensor,Alabels,
-                    B::CuDenseTensor,Blabels)
+function contract!(C::CuDenseTensor,Clabels,
+                   A::NonuniformCuDiagTensor,Alabels,
+                   B::CuDenseTensor,Blabels)
     Astore = data(store(A))
     newAstore = CuArrays.zeros(eltype(A), dims(inds(A))[1], dims(inds(A))[2])
     adi = diagind(newAstore, 0)
     newAstore[adi] = Astore[:]
     newA = Tensor(Diag(vec(newAstore)), inds(A))
-    _contract!(C, Clabels, newA, Alabels, B, Blabels)
+    contract!(C, Clabels, newA, Alabels, B, Blabels)
 end
 
-function _contract!(C::CuDenseTensor,Clabels,
-                    A::CuDenseTensor,Alabels,
-                    B::NonuniformCuDiagTensor,Blabels)
+function contract!(C::CuDenseTensor,Clabels,
+                   A::CuDenseTensor,Alabels,
+                   B::NonuniformCuDiagTensor,Blabels)
     Bstore = data(store(B))
     newBstore = CuArrays.zeros(eltype(B), dims(inds(B))[1], dims(inds(B))[2])
     bdi = diagind(newBstore, 0)
     newBstore[bdi] = Bstore[:]
     newB = Tensor(Diag(vec(newBstore)), inds(B))
-    _contract!(C, Clabels, A, Alabels, newB, Blabels)
+    contract!(C, Clabels, A, Alabels, newB, Blabels)
 end
