@@ -26,8 +26,11 @@ function buildEdgeEnvironment(A::PEPS, H, left_H_terms, next_combiners, side::Sy
         replaceindex!(I_mps[row], ci, ni) 
         replaceindex!(I_mps[row+1], ci, ni)
     end
-    maxdim       = get(kwargs, :maxdim, 1)
-    H_overall    = sum(Hs; kwargs...)
+    maxdim::Int     = get(kwargs, :maxdim, 1)
+    cutoff::Float64 = get(kwargs, :cutoff, 0.0)
+    env_maxdim::Int = get(kwargs, :env_maxdim, maxdim)
+    H_overall       = sum(Hs; cutoff=cutoff, maxdim=env_maxdim)
+    #H_overall    = sum(Hs; kwargs...)
     @debug "Summed Hs, maxdim=$maxdim"
     side_H       = side == :left ? H[:, col] : H[:, col - 1]
     side_H_terms = getDirectional(vcat(side_H...), Horizontal)
@@ -56,9 +59,14 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
         replaceindex!(I_mpo[row], ci, ni) 
         replaceindex!(I_mpo[row+1], ci, ni)
     end
+    cutoff::Float64 = get(kwargs, :cutoff, 1e-13)
+    maxdim::Int     = get(kwargs, :maxdim, 1)
+    env_maxdim::Int = get(kwargs, :env_maxdim, maxdim)
     @timeit "build new_I and new_H" begin
-        new_I     = applyMPO(I_mpo, prev_Env.I; kwargs...)
-        new_H     = applyMPO(I_mpo, prev_Env.H; kwargs...)
+        new_I     = applyMPO(I_mpo, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim)
+        new_H     = applyMPO(I_mpo, prev_Env.H; cutoff=cutoff, maxdim=env_maxdim)
+        println("I error: ", errorMPOprod(new_I, I_mpo, prev_Env.I))
+        println("H error: ", errorMPOprod(new_H, I_mpo, prev_Env.H))
     end
     @debug "Built new I and H"
     field_H_terms = getDirectional(vcat(H[:, col]...), Field)
@@ -79,7 +87,11 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
         fHs = [buildNewFields(A, previous_combiners, next_combiners, up_combiners, field_H_terms[field_op], col) for field_op in 1:length(field_H_terms)]
     end
     @timeit "build new H array" begin
-        new_H_mps[2:length(vert_H_terms) + length(field_H_terms) + 1] = [applyMPO(H_term, prev_Env.I; kwargs...) for H_term in vcat(vHs, fHs)]
+        H_terms = vcat(vHs, fHs)
+        new_H_mps[2:length(vert_H_terms) + length(field_H_terms) + 1] = [applyMPO(H_term, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim) for H_term in H_terms]
+        for (Hi, H_term) in enumerate(H_terms)
+            println("new_H_mps error: ", errorMPOprod(new_H_mps[1 + Hi], H_term, prev_Env.I))
+        end
     end
     connect_H    = side == :left ? side_H_terms : hori_H_terms
     @timeit "connect dangling bonds" begin
@@ -89,7 +101,7 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
     new_H_mps[length(vert_H_terms) + length(field_H_terms) + 2:end] = [MPS(Ny, new_H, 0, Ny+1) for new_H in new_Hs]
 
     @timeit "sum H mps" begin
-        H_overall    = sum(new_H_mps; kwargs...)
+        H_overall    = sum(new_H_mps; cutoff=cutoff, maxdim=env_maxdim)
     end
     @debug "Summed Hs"
     gen_H_terms  = side == :left ? hori_H_terms : side_H_terms
@@ -203,7 +215,10 @@ function generateNextDanglingBonds(A::PEPS, previous_combiners::Vector{ITensor},
     end
     this_IP[Ny] = A[Ny, col] * ops[Ny] * prime(dag(A[Ny, col])) * previous_combiners[Ny] * next_combiners[Ny] * up_combiners[Ny-1]
     in_progress_MPO = MPO(Ny, this_IP, 0, Ny+1)
-    result          = applyMPO(in_progress_MPO, Ident; kwargs...)
+    cutoff::Float64 = get(kwargs, :cutoff, 1e-13)
+    maxdim::Int     = get(kwargs, :maxdim, 1)
+    env_maxdim::Int = get(kwargs, :env_maxdim, maxdim)
+    result          = applyMPO(in_progress_MPO, Ident; cutoff=cutoff, maxdim=env_maxdim)
     return ITensor[result[row]*next_combiners[row] for row in 1:Ny]
 end
 
@@ -232,10 +247,13 @@ function connectDanglingBonds(A::PEPS, next_combiners::Vector{ITensor}, up_combi
     end
     completed_H = MPO(Ny, this_IP, 0, Ny+1)
     if work_row == -1
-        dummy_cmbs     = [combiner(commoninds(completed_H[row], in_prog_mps[row]), tags="Site,r$row")[1] for row in 1:Ny]
-        completed_H.A_ = dummy_cmbs .* tensors(completed_H)
-        in_prog_mps.A_ = dummy_cmbs .* tensors(in_prog_mps)
-        result         = applyMPO(completed_H, in_prog_mps; kwargs...)
+        dummy_cmbs      = [combiner(commoninds(completed_H[row], in_prog_mps[row]), tags="Site,r$row")[1] for row in 1:Ny]
+        completed_H.A_  = dummy_cmbs .* tensors(completed_H)
+        in_prog_mps.A_  = dummy_cmbs .* tensors(in_prog_mps)
+        cutoff::Float64 = get(kwargs, :cutoff, 1e-13)
+        maxdim::Int     = get(kwargs, :maxdim, 1)
+        env_maxdim::Int = get(kwargs, :env_maxdim, maxdim)
+        result          = applyMPO(completed_H, in_prog_mps; cutoff=cutoff, maxdim=env_maxdim)
         return tensors(result)
     else
         @inbounds for row in 1:Ny-1

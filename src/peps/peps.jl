@@ -1,6 +1,6 @@
 using ITensors, ITensorsGPU
 using CuArrays
-using Random, Logging, LinearAlgebra
+using Random, Logging, LinearAlgebra, DelimitedFiles
 
 import ITensors: tensors
 
@@ -13,13 +13,13 @@ mutable struct PEPS
 
     PEPS(Nx::Int, Ny::Int, A::Matrix{ITensor}) = new(Nx, Ny, A)
     function PEPS(sites, lattice::Lattice, Nx::Int, Ny::Int; mindim::Int=1, is_gpu::Bool=false)
-        p  = Matrix{ITensor}(undef, Nx, Ny)
-        right_links = [ Index(mindim, "Link,c$j,r$i,r") for i in 1:Nx, j in 1:Ny ]
-        up_links    = [ Index(mindim, "Link,c$j,r$i,u") for i in 1:Nx, j in 1:Ny ]
+        p           = Matrix{ITensor}(undef, Ny, Nx)
+        right_links = [ Index(mindim, "Link,c$j,r$i,r") for i in 1:Ny, j in 1:Nx ]
+        up_links    = [ Index(mindim, "Link,c$j,r$i,u") for i in 1:Ny, j in 1:Nx ]
         T           = is_gpu ? cuITensor : ITensor
         @inbounds for ii in eachindex(sites)
-            row = div(ii-1, Nx) + 1
-            col = mod(ii-1, Nx) + 1
+            col = div(ii-1, Ny) + 1
+            row = mod(ii-1, Ny) + 1
             s   = sites[ii]
             if 1 < row < Ny && 1 < col < Nx 
                 p[row, col] = T(right_links[row, col], up_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
@@ -40,6 +40,7 @@ mutable struct PEPS
             elseif row == 1 && col == Nx
                 p[row, col] = T(up_links[row, col], right_links[row, col-1], s)
             end
+            @assert p[row, col] == p[ii]
         end
         new(Nx, Ny, p)
     end
@@ -67,7 +68,7 @@ function mydelt(left::Index, right::Index)
 end
 
 function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
-    lattice = squareLattice(Nx,Ny,yperiodic=false)
+    lattice = squareLattice(Nx, Ny,yperiodic=false)
     A = PEPS(sites, lattice, Nx, Ny, mindim=mindim)
     @inbounds for ii ∈ eachindex(sites)
         row = div(ii-1, Nx) + 1
@@ -107,7 +108,7 @@ end
 
 function cuPEPS(A::PEPS)
     cA = copy(A)
-    @inbounds for i in 1:Nx, j in 1:Ny
+    @inbounds for i in 1:Ny, j in 1:Nx
         cA[i, j] = cuITensor(A[i, j])
     end
     return cA
@@ -115,7 +116,7 @@ end
 
 function Base.collect(cA::PEPS)
     A = copy(cA)
-    @inbounds for i in 1:Nx, j in 1:Ny
+    @inbounds for i in 1:Ny, j in 1:Nx
         A[i, j] = collect(cA[i, j])
     end
     return A
@@ -1213,12 +1214,13 @@ function sweepColumn(A::PEPS, L::Environments, R::Environments, H, col::Int; kwa
     Ny, Nx = size(A)
     @debug "Beginning intraColumnGauge for col $col" 
     A = intraColumnGauge(A, col; kwargs...)
-    if col == div(Nx,2)# || col == Nx 
+    if col == div(Nx,2)
         L_s = buildLs(A, H; kwargs...)
         R_s = buildRs(A, H; kwargs...)
         EAncEnvs = buildAncs(A, L_s[col - 1], R_s[col + 1], H, col)
         N, E = measureEnergy(A, L_s[col - 1], R_s[col + 1], EAncEnvs, H, 1, col)
         println("Energy at MID: ", E/(Nx*Ny))
+        println("Nx: ", Nx)
     end
     @debug "Beginning buildAncs for col $col" 
     AncEnvs = buildAncs(A, L, R, H, col)
@@ -1314,37 +1316,35 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
 end
 
 function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0.)
+    env_maxdim = maxdim > 4 ? 2*maxdim : maxdim
     for sweep in sweep_start:sweep_count
         if iseven(sweep)
             println("SWEEP RIGHT $sweep")
-            A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+            A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff, env_maxdim=env_maxdim)
         else
             println("SWEEP LEFT $sweep")
-            A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff)
+            A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff, env_maxdim=env_maxdim)
         end
         flush(stdout)
         if sweep == simple_update_cutoff - 1
             for col in reverse(2:Nx)
-                A = gaugeColumn(A, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff)
+                A = gaugeColumn(A, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
             end
-            Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
-            Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff)
+            Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+            Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
         end
-        if sweep == sweep_count
-            A_ = deepcopy(A)
-            L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim)
-            R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim)
-            x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-            z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-            display(z_mag)
-            println()
-            v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-            display(v_mag)
-            println()
-            h_mag = measureSmagHorizontal(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-            display(h_mag)
-            println()
-        end
+        A_ = deepcopy(A)
+        L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+        R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+        prefix = "$(Nx)_$(maxdim)_mag_$sweep" 
+        x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+        writedlm(prefix*"_x", x_mag)
+        z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+        writedlm(prefix*"_z", z_mag)
+        v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+        writedlm(prefix*"_v", v_mag)
+        #h_mag = measureSmagHorizontal(A, Ls, Rs; mindim=mindim, maxdim=maxdim)
+        #writedlm(prefix*"_h", h_mag)
     end
     return A
 end
