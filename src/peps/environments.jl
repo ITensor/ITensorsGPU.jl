@@ -65,8 +65,8 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
     @timeit "build new_I and new_H" begin
         new_I     = applyMPO(I_mpo, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim)
         new_H     = applyMPO(I_mpo, prev_Env.H; cutoff=cutoff, maxdim=env_maxdim)
-        println("I error: ", errorMPOprod(new_I, I_mpo, prev_Env.I))
-        println("H error: ", errorMPOprod(new_H, I_mpo, prev_Env.H))
+        #println("I error: ", errorMPOprod(new_I, I_mpo, prev_Env.I))
+        #println("H error: ", errorMPOprod(new_H, I_mpo, prev_Env.H))
     end
     @debug "Built new I and H"
     field_H_terms = getDirectional(vcat(H[:, col]...), Field)
@@ -89,9 +89,9 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
     @timeit "build new H array" begin
         H_terms = vcat(vHs, fHs)
         new_H_mps[2:length(vert_H_terms) + length(field_H_terms) + 1] = [applyMPO(H_term, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim) for H_term in H_terms]
-        for (Hi, H_term) in enumerate(H_terms)
-            println("new_H_mps error: ", errorMPOprod(new_H_mps[1 + Hi], H_term, prev_Env.I))
-        end
+        #for (Hi, H_term) in enumerate(H_terms)
+        #    println("new_H_mps error: ", errorMPOprod(new_H_mps[1 + Hi], H_term, prev_Env.I))
+        #end
     end
     connect_H    = side == :left ? side_H_terms : hori_H_terms
     @timeit "connect dangling bonds" begin
