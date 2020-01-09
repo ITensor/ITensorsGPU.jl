@@ -61,7 +61,7 @@ cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simp
 cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 
 # actual profiling run
-cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50)
+cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50, cutoff=0.0)
 println("Done sweeping GPU $tS")
 flush(stdout)
 flush(io)
