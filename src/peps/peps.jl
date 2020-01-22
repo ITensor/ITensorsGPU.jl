@@ -1148,13 +1148,6 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
     new_E    = λ #real(scalar(collect(new_A * localH * dag(new_A)')))
     N        = buildN(A, L, R, AncEnvs[:I], row, col, new_A)
     new_N    = real(scalar(collect(N * dag(new_A)')))
-    println("Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N")
-    #=if new_E/new_N > initial_E/initial_N
-        @info "badness"
-        new_A = deepcopy(A[row, col])
-        new_E = initial_E 
-        new_N = initial_N #real(scalar(collect(N * dag(new_A)')))
-    end=#
     @info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
     @timeit "restore intraColumnGauge" begin
         if row < Ny
@@ -1335,8 +1328,7 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
     return A, Ls, Rs
 end
 
-function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0.)
-    env_maxdim = maxdim > 4 ? 2*maxdim : maxdim
+function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0., env_maxdim=2maxdim, do_mag::Bool=false, prefix="$(Nx)_$(maxdim)_mag")
     for sweep in sweep_start:sweep_count
         if iseven(sweep)
             println("SWEEP RIGHT $sweep")
@@ -1353,18 +1345,19 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
             Ls = buildLs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
             Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
         end
-        A_ = deepcopy(A)
-        L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
-        R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
-        prefix = "$(Nx)_$(maxdim)_mag_$sweep" 
-        x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-        writedlm(prefix*"_x", x_mag)
-        z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-        writedlm(prefix*"_z", z_mag)
-        v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
-        writedlm(prefix*"_v", v_mag)
-        #h_mag = measureSmagHorizontal(A, Ls, Rs; mindim=mindim, maxdim=maxdim)
-        #writedlm(prefix*"_h", h_mag)
+        if do_mag
+            A_ = deepcopy(A)
+            L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+            R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+            x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            writedlm(prefix*"_$(sweep)_x", x_mag)
+            z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            writedlm(prefix*"_$(sweep)_z", z_mag)
+            v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            writedlm(prefix*"_$(sweep)_v", v_mag)
+            #h_mag = measureSmagHorizontal(A, Ls, Rs; mindim=mindim, maxdim=maxdim)
+            #writedlm(prefix*"_$(sweep)_h", h_mag)
+        end
     end
     return A
 end

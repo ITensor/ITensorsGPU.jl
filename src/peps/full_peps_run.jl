@@ -5,8 +5,9 @@ include("peps.jl")
 # get basic simulation parameters 
 Nx  = tryparse(Int, ARGS[1])
 Ny  = tryparse(Int, ARGS[1])
-
-chi = tryparse(Int, ARGS[2])
+env_add = tryparse(Int, ARGS[2])
+chi = tryparse(Int, ARGS[3])
+env_maxdim = chi + env_add
 simple_update_cutoff = 3
 
 # log file which keeps track of more detailed info about the simulation, not super exciting
@@ -61,7 +62,8 @@ cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simp
 cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 
 # actual profiling run
-cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50, cutoff=0.0)
+prefix = "magvar/$(Nx)_$(env_add)_$(chi)_magvar"
+cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50, cutoff=0.0, env_maxdim=env_maxdim, do_mag=true, prefix=prefix)
 println("Done sweeping GPU $tS")
 flush(stdout)
 flush(io)
