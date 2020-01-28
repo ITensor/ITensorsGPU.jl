@@ -59,14 +59,28 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   Uinds = IndsT((ind(T,1),u))
   Sinds = IndsT((u,v))
   Vinds = IndsT((ind(T,2),v))
-  U = Tensor(Dense(vec(MU)),Uinds)
-  Sdata      = CuArrays.zeros(ElT, dS * dS)
-  dsi        = diagind(reshape(Sdata, dS, dS), 0)
+  local Udata, Sdata, Vdata 
+  unified = CUDAdrv.is_managed(data(store(T)).ptr)
+  if unified
+      ubuf  = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, length(MU) * sizeof(ElT))
+      Udata = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, ubuf), length(MU); own=true)
+      sbuf  = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, dS*dS * sizeof(ElT))
+      Sdata = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, sbuf), dS*dS; own=true)
+      vbuf  = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, length(MV) * sizeof(ElT))
+      Vdata = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, vbuf), length(MV); own=true)
+      fill!(Sdata, zero(ElT))
+  else
+      Udata = CuArrays.zeros(ElT, length(MU)) 
+      Sdata = CuArrays.zeros(ElT, dS * dS)
+      Vdata = CuArrays.zeros(ElT, length(MV)) 
+  end
+  copyto!(Udata, vec(MU))
+  copyto!(Vdata, vec(MV))
+  dsi = diagind(reshape(Sdata, dS, dS), 0)
   Sdata[dsi] = MS
-  MV_ = CuArrays.zeros(ElT, length(MV))
-  copyto!(MV_, vec(MV))
+  U = Tensor(Dense(Udata),Uinds)
   S = Tensor(Dense(Sdata),Sinds)
-  V = Tensor(Dense(MV_),Vinds)
+  V = Tensor(Dense(Vdata),Vinds)
   return U,S,V,spec
 end
 
@@ -78,6 +92,7 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   cutoff::Float64 = get(kwargs,:cutoff,0.0)
   absoluteCutoff::Bool = get(kwargs,:absoluteCutoff,false)
   doRelCutoff::Bool = get(kwargs,:doRelCutoff,true)
+  # unified 
   local DM, UM 
   if ElT <: Complex
     DM, UM = CUSOLVER.heevd!('V', 'U', matrix(T))
@@ -90,7 +105,6 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   dD = length(DM)
   dV = reverse(UM, dims=2)
   if dD < size(dV,2)
-      #UM = CuMatrix(UM[:,reverse((size(UM, 2)-dD+1):end)])
       dV = CuMatrix(dV[:,1:dD])
   end
   # Make the new indices to go onto U and V
@@ -98,7 +112,14 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   v = eltype(IndsT)(dD)
   Uinds = IndsT((ind(T,1),u))
   Dinds = IndsT((u,v))
-  dV_ = CuArrays.zeros(ElT, length(dV))
+  local dV_
+  unified = CUDAdrv.is_managed(data(store(T)).ptr)
+  if unified
+      buf = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, length(dV) * sizeof(ElT))
+      dV_ = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, buf), length(dV); own=true)
+  else
+      dV_ = CuArrays.zeros(ElT, length(dV))
+  end
   copyto!(dV_, vec(dV))
   U = Tensor(Dense(dV_),Uinds)
   D = Tensor(Diag(real.(DM)),Dinds)
@@ -113,8 +134,17 @@ function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}
   Qinds = IndsT((ind(T,1),q))
   Rinds = IndsT((q,ind(T,2)))
   QM = CuMatrix(QM)
-  Q_ = CuArrays.zeros(ElT, length(QM))
-  R_ = CuArrays.zeros(ElT, length(RM))
+  unified = CUDAdrv.is_managed(data(store(T)).ptr)
+  local Q_, R_
+  if unified
+      qbuf = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, length(QM) * sizeof(ElT))
+      Q_   = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, qbuf), length(QM); own=true)
+      rbuf = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, length(RM) * sizeof(ElT))
+      R_   = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, rbuf), length(RM); own=true)
+  else
+      Q_ = CuArrays.zeros(ElT, length(QM))
+      R_ = CuArrays.zeros(ElT, length(RM))
+  end
   copyto!(Q_, vec(QM))
   copyto!(R_, vec(RM))
   Q = Tensor(Dense(Q_),Qinds)

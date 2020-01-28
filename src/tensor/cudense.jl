@@ -39,7 +39,7 @@ end
 
 function Base.permutedims(T::CuDenseTensor{<:Number,N},
                           perm::NTuple{N,Int}) where {N}
-  Tp = similar(T,permute(inds(T),perm); unified=CUDAdrv.is_managed(data(store(T)).ptr))
+  Tp = similar(typeof(T),permute(inds(T),perm); unified=CUDAdrv.is_managed(data(store(T)).ptr))
   permute!(Tp,T)
   return Tp
 end
@@ -89,8 +89,7 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   return vec(reshapeBdata) 
 end
 
-function Base.similar(::Type{<:CuDenseTensor{ElT}},
-                      inds; unified::Bool=false) where {ElT}
+function Base.similar(::Type{<:CuDenseTensor{ElT}}, inds; unified::Bool=false) where {ElT}
     if !unified
         storage_arr = CuVector{ElT}(undef,dim(inds)) 
         return Tensor(Dense(storage_arr),inds)
