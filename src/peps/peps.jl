@@ -1,6 +1,6 @@
 using ITensors, ITensorsGPU
-using CuArrays
-using Random, Logging, LinearAlgebra, DelimitedFiles
+using CuArrays, CUDAdrv
+using TimerOutputs, Random, Logging, LinearAlgebra, DelimitedFiles
 
 import ITensors: tensors
 
@@ -12,7 +12,7 @@ mutable struct PEPS
     PEPS() = new(0, 0, Matrix{ITensor}(),0,0)
 
     PEPS(Nx::Int, Ny::Int, A::Matrix{ITensor}) = new(Nx, Ny, A)
-    function PEPS(sites, lattice::Lattice, Nx::Int, Ny::Int; mindim::Int=1, is_gpu::Bool=false)
+    function PEPS(sites, lattice::Lattice, Nx::Int, Ny::Int; mindim::Int=1, is_gpu::Bool=false, unified::Bool=false)
         p           = Matrix{ITensor}(undef, Ny, Nx)
         right_links = [ Index(mindim, "Link,c$j,r$i,r") for i in 1:Ny, j in 1:Nx ]
         up_links    = [ Index(mindim, "Link,c$j,r$i,u") for i in 1:Ny, j in 1:Nx ]
@@ -21,24 +21,42 @@ mutable struct PEPS
             col = div(ii-1, Ny) + 1
             row = mod(ii-1, Ny) + 1
             s   = sites[ii]
-            if 1 < row < Ny && 1 < col < Nx 
-                p[row, col] = T(right_links[row, col], up_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
+            local inds
+            if 1 < row < Ny && 1 < col < Nx
+                inds = IndexSet(right_links[row, col], up_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
             elseif row == 1 && 1 < col < Nx
-                p[row, col] = T(right_links[row, col], up_links[row, col], right_links[row, col-1], s)
+                inds = IndexSet(right_links[row, col], up_links[row, col], right_links[row, col-1], s)
             elseif 1 < row < Ny && col == 1
-                p[row, col] = T(right_links[row, col], up_links[row, col], up_links[row-1, col], s)
+                inds = IndexSet(right_links[row, col], up_links[row, col], up_links[row-1, col], s)
             elseif row == Ny && 1 < col < Nx 
-                p[row, col] = T(right_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
+                inds = IndexSet(right_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
             elseif 1 < row < Ny && col == Nx 
-                p[row, col] = T(up_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
+                inds = IndexSet(up_links[row, col], right_links[row, col-1], up_links[row-1, col], s)
             elseif row == Ny && col == 1 
-                p[row, col] = T(right_links[row, col], up_links[row-1, col], s)
+                inds = IndexSet(right_links[row, col], up_links[row-1, col], s)
             elseif row == Ny && col == Nx 
-                p[row, col] = T(right_links[row, col-1], up_links[row-1, col], s)
+                inds = IndexSet(right_links[row, col-1], up_links[row-1, col], s)
             elseif row == 1 && col == 1 
-                p[row, col] = T(right_links[row, col], up_links[row, col], s)
+                inds = IndexSet(right_links[row, col], up_links[row, col], s)
             elseif row == 1 && col == Nx
-                p[row, col] = T(up_links[row, col], right_links[row, col-1], s)
+                inds = IndexSet(up_links[row, col], right_links[row, col-1], s)
+            end
+            if unified && is_gpu
+                n_bytes     = prod(dims(inds)) * sizeof(Float64)
+                buf         = Mem.alloc(Mem.UnifiedBuffer, n_bytes)
+                arr         = unsafe_wrap(CuVector{Float64}, convert(CuPtr{Float64}, buf), (prod(dims(inds)),); own=true)
+                p[row, col] = T(arr, inds)
+            elseif !unified && is_gpu
+                arr         = CuVector{Float64}(undef, prod(dims(inds)))
+                p[row, col] = T(arr, inds)
+            elseif unified && !is_gpu
+                n_bytes     = prod(dims(inds)) * sizeof(Float64)
+                buf         = Mem.alloc(Mem.UnifiedBuffer, n_bytes)
+                arr         = unsafe_wrap(Vector{Float64}, convert(Ptr{Float64}, buf), (prod(dims(inds)),); own=true)
+                p[row, col] = T(arr, inds)
+            else
+                arr         = Vector{Float64}(undef, prod(dims(inds)))
+                p[row, col] = T(arr, inds)
             end
             @assert p[row, col] == p[ii]
         end
@@ -63,9 +81,9 @@ function mydelt(left::Index, right::Index)
     return delt
 end
 
-function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
+function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1, unified::Bool=false)
     lattice = square_lattice(Nx, Ny,yperiodic=false)
-    A = PEPS(sites, lattice, Nx, Ny, mindim=mindim)
+    A = PEPS(sites, lattice, Nx, Ny, mindim=mindim, unified=unified)
     @inbounds for ii ∈ eachindex(sites)
         row = div(ii-1, Nx) + 1
         col = mod(ii-1, Nx) + 1
@@ -82,9 +100,9 @@ function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
     return A
 end
 
-function randomPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
-    lattice = squareLattice(Nx,Ny,yperiodic=false)
-    A = PEPS(sites, lattice, Nx, Ny, mindim=mindim)
+function randomPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1, unified::Bool=false)
+    lattice = square_lattice(Nx,Ny,yperiodic=false)
+    A = PEPS(sites, lattice, Nx, Ny, mindim=mindim, unified=unified)
     @inbounds for ii ∈ eachindex(sites)
         randn!(A[ii])
         normalize!(A[ii])
@@ -100,9 +118,9 @@ include("ancillaries.jl")
 include("gauge.jl")
 include("observables.jl")
 
-function randomCuPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
-    lattice = squareLattice(Nx,Ny,yperiodic=false)
-    A = PEPS(sites, lattice, Nx, Ny; mindim=mindim, is_gpu=true)
+function randomCuPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1, unified::Bool=false)
+    lattice = square_lattice(Nx,Ny,yperiodic=false)
+    A = PEPS(sites, lattice, Nx, Ny; mindim=mindim, is_gpu=true, unified=unified)
     @inbounds for ii ∈ eachindex(sites)
         randn!(A[ii])
         normalize!(A[ii])
