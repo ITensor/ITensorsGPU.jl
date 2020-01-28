@@ -9,6 +9,8 @@ using Random
 using TimerOutputs
 using StaticArrays
 using ITensors
+using CUDAdrv
+using CUDAdrv.Mem
 import CuArrays: CuArray, CuMatrix, CuVector
 import ITensors: randn!, compute_contraction_labels,
                  plussers, DenseTensor, eigenHermitian,

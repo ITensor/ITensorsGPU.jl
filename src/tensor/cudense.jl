@@ -27,9 +27,19 @@ function Base.promote_rule(::Type{<:Dense{ElT1,CuVector{ElT1}}},
   return Dense{ElR,VecR}
 end
 
+function contraction_output(T1::TensorT1,
+                            T2::TensorT2,
+                            indsR::IndsR) where {TensorT1<:CuDenseTensor,
+                                                 TensorT2<:CuDenseTensor,
+                                                 IndsR}
+  TensorR = contraction_output_type(TensorT1,TensorT2,IndsR)
+  unified = CUDAdrv.is_managed(data(store(T1)).ptr) || CUDAdrv.is_managed(data(store(T2)).ptr)
+  return similar(TensorR,indsR; unified=unified)
+end
+
 function Base.permutedims(T::CuDenseTensor{<:Number,N},
                           perm::NTuple{N,Int}) where {N}
-  Tp = similar(T,permute(inds(T),perm))
+  Tp = similar(T,permute(inds(T),perm); unified=CUDAdrv.is_managed(data(store(T)).ptr))
   permute!(Tp,T)
   return Tp
 end
@@ -80,9 +90,15 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
 end
 
 function Base.similar(::Type{<:CuDenseTensor{ElT}},
-                      inds) where {ElT}
-    storage_arr = CuVector{ElT}(undef,dim(inds)) 
-    return Tensor(Dense(storage_arr),inds)
+                      inds; unified::Bool=false) where {ElT}
+    if !unified
+        storage_arr = CuVector{ElT}(undef,dim(inds)) 
+        return Tensor(Dense(storage_arr),inds)
+    else
+        buf = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, dim(inds) * sizeof(ElT))
+        storage_arr = unsafe_wrap(CuVector{ElT}, convert(CuPtr{ElT}, buf), dim(inds); own=true)
+        return Tensor(Dense(storage_arr),inds)
+    end
 end
 
 
@@ -221,6 +237,7 @@ function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   ctcinds = copy(ctbinds)
+  # Unified fix
   C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(store(B)), vec(C))
@@ -273,7 +290,6 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   end
   
   CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
-  #copyto!(B.store.data, reshape(reshapeBdata, length(B.store.data)))
   return vec(reshapeBdata) 
 end
 
@@ -296,7 +312,6 @@ function Base.permute!(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   end
   
   CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
-  #copyto!(B.store.data, reshape(reshapeBdata, length(B.store.data)))
   return vec(reshapeBdata) 
 end
 
