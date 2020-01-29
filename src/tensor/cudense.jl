@@ -236,8 +236,15 @@ function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   ctcinds = copy(ctbinds)
-  # Unified fix
-  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
+  unified_b = CUDAdrv.is_managed(Bdata.ptr)
+  unified_a = CUDAdrv.is_managed(Adata.ptr)
+  local C
+  if unified_a || unified_b
+      buf = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, dims(Bis) * sizeof(eltype(B)))
+      C   = unsafe_wrap(CuVector{eltype(B)}, convert(CuPtr{eltype(B)}, buf), dims(Bis); own=true)
+  else
+      C = CuArrays.zeros(eltype(Bdata), dims(Bis))
+  end
   CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(store(B)), vec(C))
   return B
@@ -262,7 +269,14 @@ function Base.:+(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   for (ii, ib) in enumerate(Bis)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
-  C = zeros(Bdata)
+  unified = CUDAdrv.is_managed(Adata.ptr) || CUDAdrv.is_managed(Bdata.ptr)
+  local C
+  if unified
+      buf = CUDAdrv.Mem.alloc(CUDAdrv.Mem.UnifiedBuffer, dims(Bis) * sizeof(eltype(B)))
+      C   = unsafe_wrap(CuVector{eltype(B)}, convert(CuPtr{eltype(B)}, buf), dims(Bis); own=true)
+  else
+      C = CuArrays.zeros(eltype(Bdata), dims(Bis))
+  end
   Cis = Bis
   C = CUTENSOR.elementwiseBinary!(1, Adata, ctainds, opA, 1, Bdata, Binds, opC, C, Cis, opAC)
   return C
