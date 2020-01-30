@@ -46,6 +46,15 @@ end
 
 function Base.permutedims!(B::CuDenseTensor{<:Number, N},
                            A::CuDenseTensor{<:Number, N},
+                           perm::NTuple{N, Int}) where {N}
+  Ais = inds(A)
+  Bis = permute(inds(A), perm)
+  Bdata = permute!(store(B), Bis, store(A), Ais)
+  return Tensor(Dense(Bdata), Bis) 
+end
+
+function Base.permutedims!(B::CuDenseTensor{<:Number, N},
+                           A::CuDenseTensor{<:Number, N},
                            perm,
                            f::Function) where {N} #(r,t)->permute!(r,t)) where {N}
   Ais = inds(A)
@@ -211,6 +220,7 @@ function _contract!(CT::CuDenseTensor{El,NC},
   id_op = CuArrays.CUTENSOR.CUTENSOR_OP_IDENTITY
   CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op)
   copyto!(CT.store.data, vec(Cdata))
+  synchronize()
 end
 
 function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
@@ -247,6 +257,7 @@ function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
   end
   CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(store(B)), vec(C))
+  synchronize()
   return B
 end
 
@@ -279,6 +290,7 @@ function Base.:+(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   end
   Cis = Bis
   C = CUTENSOR.elementwiseBinary!(1, Adata, ctainds, opA, 1, Bdata, Binds, opC, C, Cis, opAC)
+  synchronize()
   return C
 end
 
@@ -303,6 +315,7 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   end
   
   CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
+  synchronize()
   return vec(reshapeBdata) 
 end
 
@@ -323,8 +336,9 @@ function Base.permute!(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   for (ii, ib) in enumerate(Bis)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
-  
   CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
-  return vec(reshapeBdata) 
+  synchronize()
+  new_dat = vec(reshapeBdata)
+  return new_dat 
 end
 

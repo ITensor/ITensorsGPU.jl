@@ -46,8 +46,6 @@ mutable struct PEPS
                 buf         = Mem.alloc(Mem.UnifiedBuffer, n_bytes)
                 arr         = unsafe_wrap(CuVector{Float64}, convert(CuPtr{Float64}, buf), (prod(dims(inds)),); own=true)
                 p[row, col] = T(arr, inds)
-                @show inds
-                @show dim(inds)
                 @assert CUDAdrv.is_managed(data(store(p[row, col])).ptr)
             elseif !unified && is_gpu
                 arr         = CuVector{Float64}(undef, prod(dims(inds)))

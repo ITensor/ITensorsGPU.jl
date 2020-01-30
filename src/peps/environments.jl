@@ -108,6 +108,7 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
     in_progress  = Matrix{ITensor}(undef, Ny, length(side_H_terms))
     @timeit "gen dangling bonds" begin
         @inbounds for side_term in 1:length(gen_H_terms)
+            synchronize()
             in_progress[1:Ny, side_term] = generateNextDanglingBonds(A, previous_combiners, next_combiners, up_combiners, gen_H_terms[side_term], prev_Env.I, side, col; kwargs...)
         end
     end
@@ -207,12 +208,16 @@ function generateNextDanglingBonds(A::PEPS, previous_combiners::Vector{ITensor},
     ops[op_row]     = replaceindex!(ops[op_row], H.site_ind', col_site_inds[op_row]') 
     #internal_cmb_u  = is_cu ? vcat(cuITensor(1.0), up_combiners, cuITensor(1.0)) : vcat(ITensor(1.0), up_combiners, ITensor(1.0))
     #this_IP         = [A[row, col] * ops[row] * prime(dag(A[row, col])) * previous_combiners[row] * next_combiners[row] * internal_cmb_u[row] * internal_cmb_u[row+1] for row in 1:Ny]
+    synchronize()
     this_IP         = Vector{ITensor}(undef, Ny)
     this_IP[1] = A[1, col] * ops[1] * prime(dag(A[1, col])) * previous_combiners[1] * next_combiners[1] * up_combiners[1]
+    synchronize()
     for row in 2:Ny-1
         this_IP[row] = A[row, col] * ops[row] * prime(dag(A[row, col])) * previous_combiners[row] * next_combiners[row] * up_combiners[row-1] * up_combiners[row]
+        synchronize()
     end
     this_IP[Ny] = A[Ny, col] * ops[Ny] * prime(dag(A[Ny, col])) * previous_combiners[Ny] * next_combiners[Ny] * up_combiners[Ny-1]
+    synchronize()
     in_progress_MPO = MPO(Ny, this_IP, 0, Ny+1)
     cutoff::Float64 = get(kwargs, :cutoff, 1e-13)
     maxdim::Int     = get(kwargs, :maxdim, 1)

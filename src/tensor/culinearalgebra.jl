@@ -92,7 +92,7 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   cutoff::Float64 = get(kwargs,:cutoff,0.0)
   absoluteCutoff::Bool = get(kwargs,:absoluteCutoff,false)
   doRelCutoff::Bool = get(kwargs,:doRelCutoff,true)
-  # unified 
+  synchronize()
   local DM, UM 
   if ElT <: Complex
     DM, UM = CUSOLVER.heevd!('V', 'U', matrix(T))
