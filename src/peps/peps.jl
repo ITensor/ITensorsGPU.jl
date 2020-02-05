@@ -449,6 +449,7 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol
     HI     = is_cu ? cuITensor(1.0) : ITensor(1.0)
     IH     = is_cu ? cuITensor(1.0) : ITensor(1.0)
     next_col = side == :left ? 2 : Nx - 1
+    up_row = row + 1
     @inbounds for work_row in 1:row-1
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
         ci = commonindex(A[work_row, col], A[work_row, next_col])
@@ -464,14 +465,22 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol
     acmb, acmbi = combiner(IndexSet(ci, ci'), tags="Site")
     replaceindex!(acmb, acmbi, cmb)
     op = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
-    op = is_cu ? cuITensor(op) : op
     HI *= ϕ
     IH *= ϕ
     HI *= op
     IH *= op
     HI *= E.I[row] * acmb
     IH *= E.H[row] * acmb
-    @inbounds for work_row in row+1:Ny
+    ci  = commonindex(A[up_row, col], A[up_row, next_col])
+    cmb = findindex(E.I[up_row], "Site")
+    acmb, acmbi = combiner(IndexSet(ci, ci'), tags="Site")
+    replaceindex!(acmb, acmbi, cmb)
+    op = spinI(findindex(A[up_row, col], "Site"); is_gpu=is_gpu)
+    HI *= op
+    IH *= op
+    HI *= E.I[up_row] * acmb
+    IH *= E.H[up_row] * acmb
+    @inbounds for work_row in up_row+1:Ny
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
         ci = commonindex(A[work_row, col], A[work_row, next_col])
         cmb = findindex(E.I[work_row], "Site")
@@ -498,6 +507,7 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int,
     IHR_b = is_cu ? cuITensor(1.0) : ITensor(1.0)
     HLI   = is_cu ? cuITensor(1.0) : ITensor(1.0)
     IHR   = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    up_row = row + 1
     @inbounds for work_row in 1:row-1
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
         lci = commonindex(A[work_row, col], A[work_row, col-1])
@@ -521,11 +531,28 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int,
     racmb, racmbi = combiner(IndexSet(rci, rci'), tags="Site")
     replaceindex!(lacmb, lacmbi, lcmb)
     replaceindex!(racmb, racmbi, rcmb)
-    HLI  *= L.H[row] * lacmb * R.I[row] * racmb
-    HLI  *= ϕ
-    IHR  *= L.I[row] * lacmb * R.H[row] * racmb 
-    IHR  *= ϕ
-    @inbounds for work_row in reverse(row+1:Ny)
+    HLI *= L.H[row] * lacmb * R.I[row] * racmb
+    HLI *= ϕ
+    IHR *= L.I[row] * lacmb * R.H[row] * racmb 
+    IHR *= ϕ
+    op   = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
+    HLI *= op
+    IHR *= op
+
+    lci = commonindex(A[up_row, col], A[up_row, col-1])
+    rci = commonindex(A[up_row, col], A[up_row, col+1])
+    lcmb = findindex(L.I[up_row], "Site")
+    rcmb = findindex(R.I[up_row], "Site")
+    lacmb, lacmbi = combiner(IndexSet(lci, lci'), tags="Site")
+    racmb, racmbi = combiner(IndexSet(rci, rci'), tags="Site")
+    replaceindex!(lacmb, lacmbi, lcmb)
+    replaceindex!(racmb, racmbi, rcmb)
+    HLI *= L.H[up_row] * lacmb * R.I[up_row] * racmb
+    IHR *= L.I[up_row] * lacmb * R.H[up_row] * racmb 
+    op   = spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
+    HLI *= op
+    IHR *= op
+    @inbounds for work_row in reverse(up_row+1:Ny)
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
         lci = commonindex(A[work_row, col], A[work_row, col-1])
         rci = commonindex(A[work_row, col], A[work_row, col+1])
@@ -544,9 +571,6 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int,
     HLI *= HLI_b
     IHR *= IHR_a
     IHR *= IHR_b
-    op   = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
-    HLI *= op
-    IHR *= op
     AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IHR), AAinds)
     @assert hasinds(inds(HLI), AAinds)
@@ -594,7 +618,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             thisVert *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
         elseif row == op_row_a
             low_row  = op_row_a - 1
-            high_row = op_row_b + 1
+            high_row = op_row_b
             AIL = low_row > 0   ? AI[:below][low_row] : dummy 
             AIH = high_row < Ny ? AI[:above][end - high_row] : dummy 
             sA   = findindex(A[op_row_a, col], "Site")
@@ -626,7 +650,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             thisVert *= op_b
         elseif row == op_row_b
             low_row  = op_row_a - 1
-            high_row = op_row_b + 2
+            high_row = op_row_b + 1
             AIL = low_row > 0   ? AI[:below][low_row] : dummy 
             AIH = high_row < Ny ? AI[:above][end - high_row] : dummy 
             thisVert = AIL
@@ -692,7 +716,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             if col < Nx
                 ci  = commonindex(A[op_row_a, col], A[op_row_a, col+1])
                 thisVert *= multiply_side_ident(A[op_row_a, col], ci, copy(R.I[op_row_a]))
-                ci  = commonindex(A[op_row_a-1, col], A[op_row_a, col+1])
+                ci  = commonindex(A[op_row_a-1, col], A[op_row_a-1, col+1])
                 thisVert *= multiply_side_ident(A[op_row_a-1, col], ci, copy(R.I[op_row_a-1]))
             end
             thisVert *= AIL 
@@ -745,8 +769,8 @@ function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::I
             thisField *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
             thisField *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
         else
-            low_row  = op_row - 1
-            high_row = op_row + 1
+            low_row  = row - 1
+            high_row = up_row
             AIL = low_row > 0   ? AI[:below][low_row]        : dummy 
             AIH = high_row < Ny ? AI[:above][end - high_row] : dummy 
             thisField = AIL
@@ -822,9 +846,9 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
             end
             thisHori *= I
             thisHori *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
-            thisHori *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
+            thisHori *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
         else
-            low_row = (op_row_b <= row) ? op_row_b - 1 : row - 1;
+            low_row  = (op_row_b <= row)    ? op_row_b - 1 : row - 1;
             high_row = (op_row_b >= up_row) ? op_row_b + 1 : up_row + 1;
             if low_row >= 1
                 thisHori *= AL[:below][opcode][low_row]
@@ -847,11 +871,11 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
             if row == op_row_b
                 op_b = replaceindex!(op_b, H[opcode].site_ind, as)
                 op_b = replaceindex!(op_b, H[opcode].site_ind', as')
-                this_Hori *= spinI(uas; is_gpu=is_gpu)
+                thisHori *= spinI(uas; is_gpu=is_gpu)
             else
                 op_b = replaceindex!(op_b, H[opcode].site_ind, uas)
                 op_b = replaceindex!(op_b, H[opcode].site_ind', uas')
-                this_Hori *= spinI(as; is_gpu=is_gpu)
+                thisHori *= spinI(as; is_gpu=is_gpu)
             end
             thisHori *= op_b
         end
@@ -1228,7 +1252,7 @@ struct ITensorMap
   col::Int
 end
 Base.eltype(M::ITensorMap)  = eltype(M.A)
-Base.size(M::ITensorMap)    = dim(M.A[M.row, M.col])
+Base.size(M::ITensorMap)    = dim(M.A[M.row, M.col] * M.A[M.row+1, M.col])
 function (M::ITensorMap)(v::ITensor) 
     println()
     println("Before build local H")
@@ -1264,13 +1288,13 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
     @info "Initial energy at row $row col $col : $(initial_E/(initial_N*Nx*Ny)) and norm : $initial_N"
     @debug "\tBeginning davidson for col $col row $row"
     mapper   = ITensorMap(A, H, L, R, AncEnvs, row, col)
-    λ, new_ϕ = davidson(mapper, ϕ; miniter=2, kwargs...)
+    λ, new_ϕ = davidson(mapper, ϕ; miniter=3, kwargs...)
     new_E    = λ #real(scalar(collect(new_A * localH * dag(new_A)')))
     N        = buildN(A, L, R, AncEnvs[:I], row, col, new_ϕ)
     new_N    = real(scalar(collect(N * dag(new_ϕ)')))
     @info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
     @timeit "restore intraColumnGauge" begin
-        if row < Ny - 1
+        if row <= Ny - 1
             @debug "\tRestoring intraColumnGauge for col $col row $row"
             cmb_is   = IndexSet(findindex(A[row, col], "Site"))
             if col > 1
@@ -1285,13 +1309,13 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
                 Lis = IndexSet(Lis, commonindex(A[row, col], A[row - 1, col]))
             end
             old_ci = commonindex(A[row, col], A[row+1, col])
-            svdA = new_A*cmb
+            svdA = new_ϕ*cmb
             Ris = uniqueinds(inds(svdA), Lis) 
             U, S, V = svd(svdA, Ris; kwargs...)
             new_ci = commonindex(V, S)
             replaceindex!(V, new_ci, old_ci)
             A[row, col]    = V*cmb 
-            newU = S*U*A[row+1, col]
+            newU = S*U
             replaceindex!(newU, new_ci, old_ci)
             A[row+1, col] = newU
             if row < Ny - 1
@@ -1307,8 +1331,8 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
                 end
                 AncEnvs[:I][:above][end - row] = newAA * AncEnvs[:I][:above][end - row - 1]
             end
-        else
-            A[row, col] = initial_N > 0 ? new_A/√new_N : new_A
+        #else
+        #    A[row, col] = initial_N > 0 ? new_A/√new_N : new_A
         end
     end
     return A, AncEnvs
@@ -1316,10 +1340,11 @@ end
 
 function measureEnergy(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int)::Tuple{Float64, Float64}
     Ny, Nx    = size(A)
-    Hs, N     = buildLocalH(A, L, R, AncEnvs, H, row, col, A[row, col])
-    initial_N = collect(N * dag(A[row, col])')
+    ϕ         = A[row, col] * A[row+1,col]
+    Hs, N     = buildLocalH(A, L, R, AncEnvs, H, row, col, ϕ)
+    initial_N = collect(N * dag(ϕ)')
     localH    = sum(Hs)
-    initial_E = collect(localH * dag(A[row, col])')
+    initial_E = collect(localH * dag(ϕ)')
     return real(scalar(initial_N)), real(scalar(initial_E))/real(scalar(initial_N))
 end
 
