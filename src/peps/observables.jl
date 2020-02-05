@@ -14,10 +14,11 @@ function measureXmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}
     tL = col == 1  ? dummyEnv : Ls[col-1]
     AI = makeAncillaryIs(A, tL, tR, col)
     AF = makeAncillaryFs(A, tL, tR, Xs, col)
-    fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Xs, 1, col, A[1, col])
-    N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
+    ϕ  = A[1, col] * A[2, col]
+    fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Xs, 1, col, ϕ)
+    N  = buildN(A, tL, tR, (above=AI,), 1, col, ϕ)
     for row in 1:Ny
-        measuredX[row] = scalar(fT[row] * dag(A[1, col])')/scalar(N * dag(A[1, col]'))
+        measuredX[row] = scalar(fT[row] * dag(ϕ)')/scalar(N * dag(ϕ'))
     end
     return measuredX
 end
@@ -34,15 +35,15 @@ function measureZmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}
     measuredZ = zeros(Ny)
     op = is_cu ? cuITensor(Z) : Z 
     Zs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
-    #A  = intraColumnGauge(A, col; kwargs...)
     tR = col == Nx ? dummyEnv : Rs[col+1]
     tL = col == 1  ? dummyEnv : Ls[col-1]
     AI = makeAncillaryIs(A, tL, tR, col)
     AF = makeAncillaryFs(A, tL, tR, Zs, col)
-    fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Zs, 1, col, A[1, col])
-    N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
+    ϕ  = A[1, col] * A[2, col]
+    fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Zs, 1, col, ϕ)
+    N  = buildN(A, tL, tR, (above=AI,), 1, col, ϕ)
     for row in 1:Ny
-        measuredZ[row] = scalar(fT[row] * dag(A[1, col]'))/scalar(N * dag(A[1, col]'))
+        measuredZ[row] = scalar(fT[row] * dag(ϕ'))/scalar(N * dag(ϕ'))
     end
     return measuredZ
 end
@@ -70,21 +71,21 @@ function measureSmagVertical(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Envir
         push!(SVs, Operator([row=>col, row+1=>col], [0.5*M, P], s, Vertical))
         push!(SVs, Operator([row=>col, row+1=>col], [Z, Z], s, Vertical))
     end
-    #A = intraColumnGauge(A, col; kwargs...)
     tR = col == Nx ? dummyEnv : Rs[col+1]
     tL = col == 1  ? dummyEnv : Ls[col-1]
     AI = makeAncillaryIs(A, tL, tR, col)
     AV = makeAncillaryVs(A, tL, tR, SVs, col)
-    vTs = verticalTerms(A, tL, tR, (above=AI,), (above=AV,), SVs, 1, col, A[1, col])
-    N   = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
-    nrm = scalar(N * dag(A[1, col]'))
+    ϕ  = A[1, col] * A[2, col]
+    vTs = verticalTerms(A, tL, tR, (above=AI,), (above=AV,), SVs, 1, col, ϕ)
+    N   = buildN(A, tL, tR, (above=AI,), 1, col, ϕ)
+    nrm = scalar(N * dag(ϕ'))
     for (vi, vT) in enumerate(vTs)
         row = SVs[vi].sites[1][1]
-        measuredSV[row] += scalar(vT * dag(A[1, col]'))/nrm
+        measuredSV[row] += scalar(vT * dag(ϕ'))/nrm
     end
     return measuredSV
 end
-
+#=
 function measureSmagHorizontal(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}; kwargs...)
     s = Index(2, "Site,SpinInd")
     Z = ITensor(s, s')
@@ -123,4 +124,4 @@ function measureSmagHorizontal(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Env
         end
     end
     return measuredSH
-end
+end=#
