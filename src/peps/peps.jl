@@ -68,7 +68,7 @@ function mydelt(left::Index, right::Index)
 end
 
 function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
-    lattice = squareLattice(Nx, Ny,yperiodic=false)
+    lattice = square_lattice(Nx, Ny,yperiodic=false)
     A = PEPS(sites, lattice, Nx, Ny, mindim=mindim)
     @inbounds for ii ∈ eachindex(sites)
         row = div(ii-1, Nx) + 1
@@ -141,11 +141,20 @@ Base.setindex!(A::PEPS, vals::Matrix{ITensor}, i::UnitRange{Int}, ::Colon) = set
 Base.copy(A::PEPS)    = PEPS(A.Nx, A.Ny, copy(tensors(A)))
 Base.similar(A::PEPS) = PEPS(A.Nx, A.Ny, similar(tensors(A)))
 
+function ITensors.maxlinkdim(A::PEPS)
+    md = 0
+    Ny, Nx = size(A)
+    for ii in 1:Ny, jj in 1:Nx
+        md = max(md, maximum(dim.(findinds(A[ii, jj], "Link"))))
+    end
+    return md
+end
+
 function Base.show(io::IO, A::PEPS)
   print(io,"PEPS")
   (size(A)[1] > 0 && size(A)[2] > 0) && print(io,"\n")
   @inbounds for i in 1:A.Nx, j in 1:A.Ny
-      println(io,"$i $j $(A[i,j])")
+      println(io,"$i $j $(inds(A[i,j]))")
   end
 end
 
@@ -1330,6 +1339,7 @@ end
 
 function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0., env_maxdim=2maxdim, do_mag::Bool=false, prefix="$(Nx)_$(maxdim)_mag")
     for sweep in sweep_start:sweep_count
+        @show maxlinkdim(A)
         if iseven(sweep)
             println("SWEEP RIGHT $sweep")
             A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff, env_maxdim=env_maxdim)
