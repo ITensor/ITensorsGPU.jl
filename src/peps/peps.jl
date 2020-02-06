@@ -892,12 +892,12 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
         vTs = verticalTerms(A, L, R, AncEnvs[:I], AncEnvs[:V], vert_H_terms, row, col, ϕ) 
         Hs[term_counter:term_counter+length(vTs) - 1] = vTs
         term_counter += length(vTs)
-        if verbose
-            println( "--- vT TERMS ---")
+        #if verbose
+            println( "--- vT TERMS row $row col $col ---")
             for vT in vTs
                 println(scalar(vT * dag(ϕ)'))
             end
-        end
+        #end
     end
     @debug "\t\tBuilding field H terms row $row col $col"
     @timeit "build field terms" begin
@@ -1357,16 +1357,37 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
         end
         if do_mag
             A_ = deepcopy(A)
+            #for col in reverse(2:Nx)
+            for col in 1:Nx-1
+                A_ = gaugeColumn(A_, col, :right; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+            end
             L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
             R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
-            x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            x_mag = zeros(Ny, Nx)
+            z_mag = zeros(Ny, Nx)
+            v_mag = zeros(Ny, Nx)
+            prev_cmb_l = Vector{ITensor}(undef, Ny)
+            next_cmb_l = Vector{ITensor}(undef, Ny)
+            for col in reverse(1:Nx)
+                A_  = intraColumnGauge(A_, col; mindim=mindim, maxdim=maxdim)
+                x_mag[:, col] = measureXmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                z_mag[:, col] = measureZmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                v_mag[:, col] = measureSmagVertical(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                if col > 1 
+                    A_  = gaugeColumn(A_, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                    if col < Nx
+                        I, H_, IP = buildNextEnvironment(A_, R_s[col+1], H, prev_cmb_l, next_cmb_l, :right, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                        R_s[col] = Environments(I, H_, IP)
+                        prev_cmb_l = deepcopy(next_cmb_l)
+                    else
+                        right_H_terms = getDirectional(H[Nx-1], Horizontal)
+                        R_s[col] = buildEdgeEnvironment(A_, H, right_H_terms, prev_cmb_l, :right, 1; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                    end
+                end
+            end
             writedlm(prefix*"_$(sweep)_x", x_mag)
-            z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
             writedlm(prefix*"_$(sweep)_z", z_mag)
-            v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
             writedlm(prefix*"_$(sweep)_v", v_mag)
-            #h_mag = measureSmagHorizontal(A, Ls, Rs; mindim=mindim, maxdim=maxdim)
-            #writedlm(prefix*"_$(sweep)_h", h_mag)
         end
     end
     return A

@@ -1,4 +1,4 @@
-function measureXmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}; kwargs...)
+function measureXmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, col; kwargs...)
     s = Index(2, "Site,SpinInd")
     X = ITensor(s, s')
     is_gpu = !(data(store(A[1,1])) isa Array)
@@ -7,25 +7,22 @@ function measureXmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}
     Ny, Nx = size(A)
     dummyI   = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
-    measuredX = zeros(Nx, Ny)
+    measuredX = zeros(Ny)
     op = is_gpu ? cuITensor(X) : X
-    for col in 1:Nx
-        Xs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
-        A  = intraColumnGauge(A, col; kwargs...)
-        tR = col == Nx ? dummyEnv : Rs[col+1]
-        tL = col == 1  ? dummyEnv : Ls[col-1]
-        AI = makeAncillaryIs(A, tL, tR, col)
-        AF = makeAncillaryFs(A, tL, tR, Xs, col)
-        fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Xs, 1, col, A[1, col])
-        N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
-        for row in 1:Ny
-            measuredX[row, col] = scalar(fT[row] * dag(A[1, col])')/scalar(N * dag(A[1, col]'))
-        end
+    Xs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
+    tR = col == Nx ? dummyEnv : Rs[col+1]
+    tL = col == 1  ? dummyEnv : Ls[col-1]
+    AI = makeAncillaryIs(A, tL, tR, col)
+    AF = makeAncillaryFs(A, tL, tR, Xs, col)
+    fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Xs, 1, col, A[1, col])
+    N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
+    for row in 1:Ny
+        measuredX[row] = scalar(fT[row] * dag(A[1, col])')/scalar(N * dag(A[1, col]'))
     end
     return measuredX
 end
 
-function measureZmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}; kwargs...)
+function measureZmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, col; kwargs...)
     s = Index(2, "Site,SpinInd")
     Z = ITensor(s, s')
     is_gpu = !(data(store(A[1,1])) isa Array)
@@ -34,25 +31,23 @@ function measureZmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}
     Nx, Ny = size(A)
     dummyI   = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
-    measuredZ = zeros(Nx, Ny)
+    measuredZ = zeros(Ny)
     op = is_gpu ? cuITensor(Z) : Z 
-    for col in 1:Nx
-        Zs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
-        A  = intraColumnGauge(A, col; kwargs...)
-        tR = col == Nx ? dummyEnv : Rs[col+1]
-        tL = col == 1  ? dummyEnv : Ls[col-1]
-        AI = makeAncillaryIs(A, tL, tR, col)
-        AF = makeAncillaryFs(A, tL, tR, Zs, col)
-        fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Zs, 1, col, A[1, col])
-        N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
-        for row in 1:Ny
-            measuredZ[row, col] = scalar(fT[row] * dag(A[1, col]'))/scalar(N * dag(A[1, col]'))
-        end
+    Zs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
+    A  = intraColumnGauge(A, col; kwargs...)
+    tR = col == Nx ? dummyEnv : Rs[col+1]
+    tL = col == 1  ? dummyEnv : Ls[col-1]
+    AI = makeAncillaryIs(A, tL, tR, col)
+    AF = makeAncillaryFs(A, tL, tR, Zs, col)
+    fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Zs, 1, col, A[1, col])
+    N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
+    for row in 1:Ny
+        measuredZ[row] = scalar(fT[row] * dag(A[1, col]'))/scalar(N * dag(A[1, col]'))
     end
     return measuredZ
 end
 
-function measureSmagVertical(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}; kwargs...)
+function measureSmagVertical(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, col; kwargs...)
     s = Index(2, "Site,SpinInd")
     Z = ITensor(s, s')
     Z[s(1), s'(1)] = 0.5
@@ -64,30 +59,28 @@ function measureSmagVertical(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Envir
     Nx, Ny     = size(A)
     dummyI     = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv   = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
-    measuredSV = zeros(Nx, Ny)
+    measuredSV = zeros(Ny)
     is_gpu     = !(data(store(A[1,1])) isa Array)
     Z = is_gpu ? cuITensor(Z) : Z
     P = is_gpu ? cuITensor(P) : P
     M = is_gpu ? cuITensor(M) : M
-    for col in 1:Nx
-        SVs = Operator[]
-        for row in 1:Ny-1
-            push!(SVs, Operator([row=>col, row+1=>col], [0.5*P, M], s, Vertical))
-            push!(SVs, Operator([row=>col, row+1=>col], [0.5*M, P], s, Vertical))
-            push!(SVs, Operator([row=>col, row+1=>col], [Z, Z], s, Vertical))
-        end
-        A = intraColumnGauge(A, col; kwargs...)
-        tR = col == Nx ? dummyEnv : Rs[col+1]
-        tL = col == 1  ? dummyEnv : Ls[col-1]
-        AI = makeAncillaryIs(A, tL, tR, col)
-        AV = makeAncillaryVs(A, tL, tR, SVs, col)
-        vTs = verticalTerms(A, tL, tR, (above=AI,), (above=AV,), SVs, 1, col, A[1, col])
-        N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
-        nrm = scalar(N * dag(A[1, col]'))
-        for (vi, vT) in enumerate(vTs)
-            row = SVs[vi].sites[1][1]
-            measuredSV[row, col] += scalar(vT * dag(A[1, col]'))/nrm
-        end
+    SVs = Operator[]
+    for row in 1:Ny-1
+        push!(SVs, Operator([row=>col, row+1=>col], [0.5*P, M], s, Vertical))
+        push!(SVs, Operator([row=>col, row+1=>col], [0.5*M, P], s, Vertical))
+        push!(SVs, Operator([row=>col, row+1=>col], [Z, Z], s, Vertical))
+    end
+    A = intraColumnGauge(A, col; kwargs...)
+    tR = col == Nx ? dummyEnv : Rs[col+1]
+    tL = col == 1  ? dummyEnv : Ls[col-1]
+    AI = makeAncillaryIs(A, tL, tR, col)
+    AV = makeAncillaryVs(A, tL, tR, SVs, col)
+    vTs = verticalTerms(A, tL, tR, (above=AI,), (above=AV,), SVs, 1, col, A[1, col])
+    N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
+    nrm = scalar(N * dag(A[1, col]'))
+    for (vi, vT) in enumerate(vTs)
+        row = SVs[vi].sites[1][1]
+        measuredSV[row] += scalar(vT * dag(A[1, col]'))/nrm
     end
     return measuredSV
 end

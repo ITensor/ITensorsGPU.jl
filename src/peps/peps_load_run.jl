@@ -50,11 +50,11 @@ Rs = buildRs(cA, H; mindim=1, maxdim=maxlinkdim(cA), env_maxdim=env_maxdim)
 
 println("Starting main sweep, chi = $chi")
 # actual profiling run
-prefix = "$(Nx)_$(env_add)_$(chi)_load"
+prefix = "$(Nx)_$(env_add)_$(chi)_loadgauge"
 cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=1, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50, cutoff=0.0, env_maxdim=env_maxdim, do_mag=true, prefix=prefix)
 
 A = collect(cA)
-fo = h5open("peps_L_$(Nx)_chi_$(chi).h5","w")
+fo = h5open("peps_L_$(Nx)_chi_$(chi)_env_$(env_add).h5","w")
 for ii in 1:Ny, jj in 1:Nx
     write(fo, "A_$(ii)_$(jj)", A[ii, jj])
 end
