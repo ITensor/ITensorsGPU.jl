@@ -152,7 +152,7 @@ end
 function _contract!(CT::CuDenseTensor{El,NC},
                     AT::CuDenseTensor{El,NA},
                     BT::CuDenseTensor{El,NB},
-                    props::ContractionProperties) where {El,NC,NA,NB}
+                    props::ContractionProperties, α::Number=one(El),β::Number=zero(El)) where {El,NC,NA,NB}
   Ainds = inds(AT)
   Adims = dims(Ainds)
   Binds = inds(BT)
@@ -193,7 +193,7 @@ function _contract!(CT::CuDenseTensor{El,NC},
   end
   
   id_op = CuArrays.CUTENSOR.CUTENSOR_OP_IDENTITY
-  CuArrays.CUTENSOR.contraction!(one(El), Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, zero(El), Cdata, Vector{Char}(ctcinds), id_op, id_op)
+  CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op)
   copyto!(CT.store.data, vec(Cdata))
 end
 
