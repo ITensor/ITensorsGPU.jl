@@ -58,11 +58,11 @@ Ls = buildLs(cA, H; mindim=1, maxdim=chi)
 @info "Built first Ls"
 Rs = buildRs(cA, H; mindim=1, maxdim=chi)
 @info "Built first Rs"
-cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
-cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
+#cA, Ls, Rs = rightwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
+#cA, Ls, Rs = leftwardSweep(cA, Ls, Rs, H; sweep=0, mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff)
 
 # actual profiling run
-prefix = "magvar/$(Nx)_$(env_add)_$(chi)_magvar"
+prefix = "magbetter/$(Nx)_$(env_add)_$(chi)_magbetter"
 cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=chi, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50, cutoff=0.0, env_maxdim=env_maxdim, do_mag=true, prefix=prefix)
 println("Done sweeping GPU $tS")
 flush(stdout)
