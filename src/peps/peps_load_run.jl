@@ -8,6 +8,13 @@ Ny         = tryparse(Int, ARGS[1])
 env_add    = tryparse(Int, ARGS[2])
 chi        = tryparse(Int, ARGS[3])
 loadname   = ARGS[4]
+prefix     = "seeded/$(Nx)_$(env_add)_$(chi)_seeded"
+out_name   = "seeded/seed_L_$(Nx)_chi_$(chi)_env_$(env_add).h5"
+if length(ARGS) > 4
+    run_int  = tryparse(Int, ARGS[5])
+    prefix   = "seeded/$(Nx)_$(env_add)_$(chi)_$(run_int)_seeded"
+    out_name = "seeded/seed_L_$(Nx)_chi_$(chi)_env_$(env_add)_run_$(run_int).h5"
+end
 env_maxdim = chi + env_add
 simple_update_cutoff = -1
 
@@ -50,11 +57,10 @@ Rs = buildRs(cA, H; mindim=1, maxdim=maxlinkdim(cA), env_maxdim=env_maxdim)
 
 println("Starting main sweep, chi = $chi")
 # actual profiling run
-prefix = "$(Nx)_$(env_add)_$(chi)_loadgauge"
 cA, tS, bytes, gctime, memallocs = @timed doSweeps(cA, Ls, Rs, H; mindim=1, maxdim=chi, simple_update_cutoff=simple_update_cutoff, sweep_count=50, cutoff=0.0, env_maxdim=env_maxdim, do_mag=true, prefix=prefix)
 
 A = collect(cA)
-fo = h5open("peps_L_$(Nx)_chi_$(chi)_env_$(env_add).h5","w")
+fo = h5open(out_name,"w")
 for ii in 1:Ny, jj in 1:Nx
     write(fo, "A_$(ii)_$(jj)", A[ii, jj])
 end

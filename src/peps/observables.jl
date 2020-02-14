@@ -34,7 +34,7 @@ function measureZmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}
     measuredZ = zeros(Ny)
     op = is_gpu ? cuITensor(Z) : Z 
     Zs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
-    A  = intraColumnGauge(A, col; kwargs...)
+    #A  = intraColumnGauge(A, col; kwargs...)
     tR = col == Nx ? dummyEnv : Rs[col+1]
     tL = col == 1  ? dummyEnv : Ls[col-1]
     AI = makeAncillaryIs(A, tL, tR, col)
@@ -70,13 +70,13 @@ function measureSmagVertical(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Envir
         push!(SVs, Operator([row=>col, row+1=>col], [0.5*M, P], s, Vertical))
         push!(SVs, Operator([row=>col, row+1=>col], [Z, Z], s, Vertical))
     end
-    A = intraColumnGauge(A, col; kwargs...)
+    #A = intraColumnGauge(A, col; kwargs...)
     tR = col == Nx ? dummyEnv : Rs[col+1]
     tL = col == 1  ? dummyEnv : Ls[col-1]
     AI = makeAncillaryIs(A, tL, tR, col)
     AV = makeAncillaryVs(A, tL, tR, SVs, col)
     vTs = verticalTerms(A, tL, tR, (above=AI,), (above=AV,), SVs, 1, col, A[1, col])
-    N  = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
+    N   = buildN(A, tL, tR, (above=AI,), 1, col, A[1, col])
     nrm = scalar(N * dag(A[1, col]'))
     for (vi, vT) in enumerate(vTs)
         row = SVs[vi].sites[1][1]
@@ -109,7 +109,7 @@ function measureSmagHorizontal(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Env
             push!(SHs, Operator([row=>col, row=>col+1], [0.5*M, P], s, Horizontal))
             push!(SHs, Operator([row=>col, row=>col+1], [Z, Z], s, Horizontal))
         end
-        A = intraColumnGauge(A, col; kwargs...)
+        #A = intraColumnGauge(A, col; kwargs...)
         tR = Rs[col+1]
         tL = col == 1      ? dummyEnv : Ls[col-1]
         AI = makeAncillaryIs(A, tL, tR, col)

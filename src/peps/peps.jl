@@ -138,7 +138,7 @@ Base.setindex!(A::PEPS, vals::Vector{ITensor}, i::Integer, ::Colon) = setindex!(
 Base.setindex!(A::PEPS, vals::Matrix{ITensor}, ::Colon, j::UnitRange{Int}) = setindex!(tensors(A), vals, :, j)
 Base.setindex!(A::PEPS, vals::Matrix{ITensor}, i::UnitRange{Int}, ::Colon) = setindex!(tensors(A), vals, i, :)
 
-Base.copy(A::PEPS)    = PEPS(A.Nx, A.Ny, copy(tensors(A)))
+Base.copy(A::PEPS)    = PEPS(A.Nx, A.Ny, deepcopy(tensors(A)))
 Base.similar(A::PEPS) = PEPS(A.Nx, A.Ny, similar(tensors(A)))
 
 function ITensors.maxlinkdim(A::PEPS)
@@ -1220,7 +1220,7 @@ function sweepColumn(A::PEPS, L::Environments, R::Environments, H, col::Int; kwa
         L_s = buildLs(A, H; kwargs...)
         R_s = buildRs(A, H; kwargs...)
         EAncEnvs = buildAncs(A, L_s[col - 1], R_s[col + 1], H, col)
-        N, E = measureEnergy(A, L_s[col - 1], R_s[col + 1], EAncEnvs, H, 1, col)
+        N, E     = measureEnergy(A, L_s[col - 1], R_s[col + 1], EAncEnvs, H, 1, col)
         println("Energy at MID: ", E/(Nx*Ny))
         println("Nx: ", Nx)
     end
@@ -1337,9 +1337,8 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
     return A, Ls, Rs
 end
 
-function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0., env_maxdim=2maxdim, do_mag::Bool=false, prefix="$(Nx)_$(maxdim)_mag")
+function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H; mindim::Int=1, maxdim::Int=1, simple_update_cutoff::Int=4, sweep_start::Int=1, sweep_count::Int=10, cutoff::Float64=0., env_maxdim=2maxdim, do_mag::Bool=false, prefix="$(Nx)_$(maxdim)_mag", regauge::Bool=false)
     for sweep in sweep_start:sweep_count
-        @show maxlinkdim(A)
         if iseven(sweep)
             println("SWEEP RIGHT $sweep")
             A, Ls, Rs = rightwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff, env_maxdim=env_maxdim)
@@ -1357,24 +1356,26 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
         end
         if do_mag
             A_ = copy(A)
-            L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
-            R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
             x_mag = zeros(Ny, Nx)
             z_mag = zeros(Ny, Nx)
             v_mag = zeros(Ny, Nx)
             prev_cmb = Vector{ITensor}(undef, Ny)
             next_cmb = Vector{ITensor}(undef, Ny)
             if iseven(sweep)
-                for col in 1:Nx-1
-                    A_ = gaugeColumn(A_, col, :right; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                if regauge
+                    for col in 1:Nx-1
+                        A_ = gaugeColumn(A_, col, :right; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim, overlap_cutoff=0.999)
+                    end
                 end
+                L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+                R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
                 for col in reverse(1:Nx)
                     A_  = intraColumnGauge(A_, col; mindim=mindim, maxdim=maxdim)
                     x_mag[:, col] = measureXmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
                     z_mag[:, col] = measureZmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
                     v_mag[:, col] = measureSmagVertical(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
                     if col > 1 
-                        A_  = gaugeColumn(A_, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                        A_  = gaugeColumn(A_, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim, overlap_cutoff=0.999)
                         if col < Nx
                             I, H_, IP = buildNextEnvironment(A_, R_s[col+1], H, prev_cmb, next_cmb, :right, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
                             R_s[col] = Environments(I, H_, IP)
@@ -1386,16 +1387,20 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
                     end
                 end
             else
-                for col in reverse(2:Nx)
-                    A_ = gaugeColumn(A_, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                if regauge
+                    for col in reverse(2:Nx)
+                        A_  = gaugeColumn(A_, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim, overlap_cutoff=0.999)
+                    end
                 end
+                L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+                R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
                 for col in 1:Nx
                     A_  = intraColumnGauge(A_, col; mindim=mindim, maxdim=maxdim)
                     x_mag[:, col] = measureXmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
                     z_mag[:, col] = measureZmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
                     v_mag[:, col] = measureSmagVertical(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
                     if col < Nx 
-                        A_  = gaugeColumn(A_, col, :right; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                        A_  = gaugeColumn(A_, col, :right; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim, overlap_cutoff=0.999)
                         if col > 1
                             I, H_, IP = buildNextEnvironment(A_, L_s[col-1], H, prev_cmb, next_cmb, :left, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
                             L_s[col] = Environments(I, H_, IP)
