@@ -1,5 +1,5 @@
 using ITensors, ITensorsGPU
-using CuArrays
+using CuArrays, CUDAdrv
 using Random, Logging, LinearAlgebra, DelimitedFiles
 
 import ITensors: tensors
@@ -477,7 +477,7 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol
     AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IH), AAinds)
     @assert hasinds(AAinds, inds(IH))
-    return [IH]
+    return (IH,)
 end
 
 function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int, ϕ::ITensor)
@@ -514,15 +514,10 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int,
     racmb, racmbi = combiner(IndexSet(rci, rci'), tags="Site")
     replaceindex!(lacmb, lacmbi, lcmb)
     replaceindex!(racmb, racmbi, rcmb)
-    HLI  *= L.H[row] * lacmb
+    HLI  *= L.H[row] * lacmb * R.I[row] * racmb
     HLI  *= ϕ
-    HLI  *= R.I[row] * racmb
-    IHR  *= L.I[row] * lacmb 
+    IHR  *= L.I[row] * lacmb * R.H[row] * racmb 
     IHR  *= ϕ
-    IHR  *= R.H[row] * racmb 
-    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
-    HLI *= op
-    IHR *= op
     @inbounds for work_row in reverse(row+1:Ny)
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
         lci = commonindex(A[work_row, col], A[work_row, col-1])
@@ -542,13 +537,16 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int,
     HLI *= HLI_b
     IHR *= IHR_a
     IHR *= IHR_b
+    op   = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+    HLI *= op
+    IHR *= op
     #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
     AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IHR), AAinds)
     @assert hasinds(inds(HLI), AAinds)
     @assert hasinds(AAinds, inds(IHR))
     @assert hasinds(AAinds, inds(HLI))
-    return [HLI, IHR]
+    return (HLI, IHR)
 end
 
 function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
@@ -869,7 +867,10 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
     @debug "\t\tBuilding I*H and H*I row $row col $col"
     @timeit "build HIs" begin
         HIs = buildHIs(A, L, R, row, col, ϕ)
-        Hs[term_counter:term_counter+length(HIs)-1] = HIs
+        Hs[term_counter] = HIs[1]
+        if length(HIs) == 2
+            Hs[term_counter+1] = HIs[2]
+        end
         term_counter += length(HIs)
         if verbose
             println("--- HI TERMS ---")
@@ -890,6 +891,10 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
             end
         end
     end
+    println()
+    println("After vTs")
+    CuArrays.memory_status()
+    flush(stdout)
     @debug "\t\tBuilding field H terms row $row col $col"
     @timeit "build field terms" begin
         fTs = fieldTerms(A, L, R, AncEnvs[:I], AncEnvs[:F], field_H_terms, row, col, ϕ)
@@ -902,6 +907,10 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
             end
         end
     end
+    println()
+    println("After fTs")
+    CuArrays.memory_status()
+    flush(stdout)
     if col > 1
         @debug "\t\tBuilding left H terms row $row col $col"
         @timeit "build left terms" begin
@@ -917,6 +926,10 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
         end
         @debug "\t\tBuilt left terms"
     end
+    println()
+    println("After connect lefts")
+    CuArrays.memory_status()
+    flush(stdout)
     if col < Nx
         @debug "\t\tBuilding right H terms row $row col $col"
         @timeit "build right terms" begin
@@ -932,6 +945,10 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
         end
         @debug "\t\tBuilt right terms"
     end
+    println()
+    println("After connect right")
+    CuArrays.memory_status()
+    flush(stdout)
     return Hs, N
 end
 
@@ -1122,8 +1139,19 @@ end
 Base.eltype(M::ITensorMap)  = eltype(M.A)
 Base.size(M::ITensorMap)    = dim(M.A[M.row, M.col])
 function (M::ITensorMap)(v::ITensor) 
+    println()
+    println("Before build local H")
+    CuArrays.memory_status()
+    flush(stdout)
     Hs, N  = buildLocalH(M.A, M.L, M.R, M.AncEnvs, M.H, M.row, M.col, v)
+    GC.gc(true)
     localH = sum(Hs)
+    println()
+    println("After build local H")
+    CuArrays.memory_status()
+    flush(stdout)
+    println()
+    println()
     return noprime(localH)
 end
 
@@ -1146,6 +1174,8 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
     mapper   = ITensorMap(A, H, L, R, AncEnvs, row, col)
     λ, new_A = davidson(mapper, A[row, col]; miniter=2, kwargs...)
     new_E    = λ #real(scalar(collect(new_A * localH * dag(new_A)')))
+    #new_A    = A[row,col]
+    #new_E    = initial_E
     N        = buildN(A, L, R, AncEnvs[:I], row, col, new_A)
     new_N    = real(scalar(collect(N * dag(new_A)')))
     @info "Optimized energy at row $row col $col : $(new_E/(new_N*Nx*Ny)) and norm : $new_N"
@@ -1335,6 +1365,9 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
             println("SWEEP LEFT $sweep")
             A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff, env_maxdim=env_maxdim)
         end
+        CuArrays.memory_status()
+        GC.gc(true)
+        CuArrays.memory_status()
         flush(stdout)
         if sweep == simple_update_cutoff - 1
             for col in reverse(2:Nx)
