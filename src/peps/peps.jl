@@ -68,7 +68,7 @@ function mydelt(left::Index, right::Index)
 end
 
 function checkerboardPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
-    lattice = squareLattice(Nx, Ny,yperiodic=false)
+    lattice = square_lattice(Nx, Ny,yperiodic=false)
     A = PEPS(sites, lattice, Nx, Ny, mindim=mindim)
     @inbounds for ii ∈ eachindex(sites)
         row = div(ii-1, Nx) + 1
@@ -1269,8 +1269,7 @@ function rightwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environmen
             end
         else
             @timeit "left next env" begin
-                I, H_, IP = buildNextEnvironment(A, Ls[col-1], H, prev_cmb_r, next_cmb_r, :left, col; kwargs...)
-                Ls[col] = Environments(I, H_, IP)
+                Ls[col] = buildNextEnvironment(A, Ls[col-1], H, prev_cmb_r, next_cmb_r, :left, col; kwargs...)
             end
             prev_cmb_r = deepcopy(next_cmb_r)
         end
@@ -1319,8 +1318,7 @@ function leftwardSweep(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environment
             end
         else
             @timeit "right next env" begin
-                I, H_, IP = buildNextEnvironment(A, Rs[col+1], H, prev_cmb_l, next_cmb_l, :right, col; kwargs...)
-                Rs[col]   = Environments(I, H_, IP)
+                Rs[col] = buildNextEnvironment(A, Rs[col+1], H, prev_cmb_l, next_cmb_l, :right, col; kwargs...)
             end
             prev_cmb_l = deepcopy(next_cmb_l)
         end
@@ -1346,17 +1344,54 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
             Rs = buildRs(A, H; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
         end
         if do_mag
-            A_ = deepcopy(A)
-            L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
-            R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
-            x_mag = measureXmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
+            A_ = copy(A)
+            x_mag = zeros(Ny, Nx)
+            z_mag = zeros(Ny, Nx)
+            v_mag = zeros(Ny, Nx)
+            prev_cmb = Vector{ITensor}(undef, Ny)
+            next_cmb = Vector{ITensor}(undef, Ny)
+            if iseven(sweep)
+                L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+                R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+                for col in reverse(1:Nx)
+                    A_  = intraColumnGauge(A_, col; mindim=mindim, maxdim=maxdim)
+                    x_mag[:, col] = measureXmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                    z_mag[:, col] = measureZmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                    v_mag[:, col] = measureSmagVertical(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                    if col > 1 
+                        A_  = gaugeColumn(A_, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim, overlap_cutoff=0.999)
+                        if col < Nx
+                            R_s[col] = buildNextEnvironment(A_, R_s[col+1], H, prev_cmb, next_cmb, :right, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                            prev_cmb = deepcopy(next_cmb)
+                        else
+                            right_H_terms = getDirectional(H[Nx-1], Horizontal)
+                            R_s[col] = buildEdgeEnvironment(A_, H, right_H_terms, prev_cmb, :right, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                        end
+                    end
+                end
+            else
+                L_s = buildLs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+                R_s = buildRs(A_, H; mindim=mindim, maxdim=maxdim, env_maxdim=env_maxdim)
+                for col in 1:Nx
+                    A_  = intraColumnGauge(A_, col; mindim=mindim, maxdim=maxdim)
+                    x_mag[:, col] = measureXmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                    z_mag[:, col] = measureZmag(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                    v_mag[:, col] = measureSmagVertical(A_, L_s, R_s, col; mindim=mindim, maxdim=maxdim)
+                    if col < Nx 
+                        A_  = gaugeColumn(A_, col, :right; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim, overlap_cutoff=0.999)
+                        if col > 1
+                            L_s[col] = buildNextEnvironment(A_, L_s[col-1], H, prev_cmb, next_cmb, :left, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                            prev_cmb = deepcopy(next_cmb)
+                        else
+                            left_H_terms = getDirectional(H[1], Horizontal)
+                            L_s[col] = buildEdgeEnvironment(A_, H, left_H_terms, prev_cmb, :left, col; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
+                        end
+                    end
+                end
+            end
             writedlm(prefix*"_$(sweep)_x", x_mag)
-            z_mag = measureZmag(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
             writedlm(prefix*"_$(sweep)_z", z_mag)
-            v_mag = measureSmagVertical(A_, L_s, R_s; mindim=mindim, maxdim=maxdim)
             writedlm(prefix*"_$(sweep)_v", v_mag)
-            #h_mag = measureSmagHorizontal(A, Ls, Rs; mindim=mindim, maxdim=maxdim)
-            #writedlm(prefix*"_$(sweep)_h", h_mag)
         end
     end
     return A

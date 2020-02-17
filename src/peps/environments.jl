@@ -84,15 +84,21 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
         fHs = [buildNewFields(A, previous_combiners, next_combiners, up_combiners, field_H_terms[field_op], col) for field_op in 1:length(field_H_terms)]
     end
     @timeit "build new H array" begin
-        H_terms = vcat(vHs, fHs)
-        new_H_mps[2:length(vert_H_terms) + length(field_H_terms) + 1] = [applyMPO(H_term, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim) for H_term in H_terms]
+        for (vv, vH) in enumerate(vHs)
+            new_H_mps[1+vv] = applyMPO(vH, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim)
+        end
+        for (ff, fH) in enumerate(fHs)
+            new_H_mps[1+length(vHs)+ff] = applyMPO(fH, prev_Env.I; cutoff=cutoff, maxdim=env_maxdim)
+        end
     end
     connect_H    = side == :left ? side_H_terms : hori_H_terms
     @timeit "connect dangling bonds" begin
-        new_Hs = [connectDanglingBonds(A, next_combiners, up_combiners, connect_H_term, prev_Env.InProgress[:, term_ind], side, -1, col; kwargs...) for (term_ind, connect_H_term) in enumerate(connect_H)]
+        for (cc, cH) in enumerate(connect_H)
+            new_H = connectDanglingBonds(A, next_combiners, up_combiners, cH, prev_Env.InProgress[:, cc], side, -1, col; kwargs...)
+            new_H_mps[length(vert_H_terms) + length(field_H_terms) + 1 + cc] = MPS(Ny, new_H, 0, Ny+1)
+        end
     end
     @debug "Connected dangling bonds"
-    new_H_mps[length(vert_H_terms) + length(field_H_terms) + 2:end] = [MPS(Ny, new_H, 0, Ny+1) for new_H in new_Hs]
 
     @timeit "sum H mps" begin
         H_overall    = sum(new_H_mps; cutoff=cutoff, maxdim=env_maxdim)
@@ -106,7 +112,7 @@ function buildNextEnvironment(A::PEPS, prev_Env::Environments, H, previous_combi
         end
     end
     @debug "Generated next dangling bonds"
-    return new_I, H_overall, in_progress
+    return Environments(new_I, H_overall, in_progress)
 end
 
 function buildNewVerticals(A::PEPS, previous_combiners::Vector, next_combiners::Vector{ITensor}, up_combiners::Vector{ITensor}, H, col::Int)::MPO
@@ -276,8 +282,7 @@ function buildLs(A::PEPS, H; kwargs...)
     loop_col = start_col == 1 ? 2 : start_col
     @inbounds for col in loop_col:(Nx-1)
         @debug "Building left col $col"
-        I, H_, IP = buildNextEnvironment(A, Ls[col-1], H, previous_combiners, next_combiners, :left, col; kwargs...)
-        Ls[col]   = Environments(I, H_, IP)
+        Ls[col] = buildNextEnvironment(A, Ls[col-1], H, previous_combiners, next_combiners, :left, col; kwargs...)
         previous_combiners = deepcopy(next_combiners)
     end
     return Ls
@@ -298,8 +303,7 @@ function buildRs(A::PEPS, H; kwargs...)
     loop_col = start_col == Nx ? Nx - 1 : start_col
     @inbounds for col in reverse(2:loop_col)
         @debug "Building right col $col"
-        I, H_, IP = buildNextEnvironment(A, Rs[col+1], H, previous_combiners, next_combiners, :right, col; kwargs...)
-        Rs[col]   = Environments(I, H_, IP)
+        Rs[col] = buildNextEnvironment(A, Rs[col+1], H, previous_combiners, next_combiners, :right, col; kwargs...)
         previous_combiners = deepcopy(next_combiners)
     end
     return Rs
