@@ -1,5 +1,5 @@
 using ITensors, ITensorsGPU
-using CuArrays, CUDAdrv
+using CuArrays
 using Random, Logging, LinearAlgebra, DelimitedFiles
 
 import ITensors: tensors
@@ -46,10 +46,6 @@ mutable struct PEPS
     end
 end
 Base.eltype(A::PEPS) = eltype(A.A_[1,1])
-include("environments.jl")
-include("ancillaries.jl")
-include("gauge.jl")
-include("observables.jl")
 
 function cudelt(left::Index, right::Index)
     d_data   = CuArrays.zeros(Float64, dim(left), dim(right))
@@ -96,6 +92,14 @@ function randomPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
     return A
 end
 
+is_gpu(A::PEPS)    = all(is_gpu.(A[:,:]))
+is_gpu(A::ITensor) = (data(store(A)) isa CuArray)
+
+include("environments.jl")
+include("ancillaries.jl")
+include("gauge.jl")
+include("observables.jl")
+
 function randomCuPEPS(sites, Nx::Int, Ny::Int; mindim::Int=1)
     lattice = squareLattice(Nx,Ny,yperiodic=false)
     A = PEPS(sites, lattice, Nx, Ny; mindim=mindim, is_gpu=true)
@@ -130,6 +134,7 @@ Base.getindex(A::PEPS, ::Colon,    j::Integer) = getindex(tensors(A), :, j)::Vec
 Base.getindex(A::PEPS, i::Integer, ::Colon)    = getindex(tensors(A), i, :)::Vector{ITensor}
 Base.getindex(A::PEPS, ::Colon,    j::UnitRange{Int}) = getindex(tensors(A), :, j)::Matrix{ITensor}
 Base.getindex(A::PEPS, i::UnitRange{Int}, ::Colon)    = getindex(tensors(A), i, :)::Matrix{ITensor}
+Base.getindex(A::PEPS, ::Colon, ::Colon)       = getindex(tensors(A), :, :)::Matrix{ITensor}
 Base.getindex(A::PEPS, i::Integer)             = getindex(tensors(A), i)::ITensor
 
 Base.setindex!(A::PEPS, val::ITensor, i::Integer, j::Integer)       = setindex!(tensors(A), val, i, j)
@@ -318,8 +323,7 @@ end
 
 function buildN(A::PEPS, L::Environments, R::Environments, IEnvs, row::Int, col::Int, ϕ::ITensor)::ITensor
     Ny, Nx   = size(A)
-    is_gpu   = !(data(store(A[1,1])) isa Array)
-    N        = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+    N        = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu(A))
     workingN = N
     if row > 1
         workingN *= IEnvs[:below][row - 1]
@@ -341,25 +345,23 @@ end
 
 
 function multiply_side_ident(A::ITensor, ci::Index, side_I::ITensor)
-    is_gpu      = !(data(store(A)) isa Array)
     scmb        = findindex(side_I, "Site")
     acmb, acmbi = combiner(IndexSet(ci, ci'), tags="Site")
     replaceindex!(acmb, acmbi, scmb)
-    msi         = side_I * acmb
-    return msi
+    return side_I * acmb
 end
 
 function nonWorkRow(A::PEPS, L::Environments, R::Environments, H::Operator, row::Int, col::Int)::ITensor
     Ny, Nx  = size(A)
     op_rows = H.sites
-    is_gpu  = !(data(store(A[1,1])) isa Array)
+    is_cu   = is_gpu(A) 
     ops     = deepcopy(H.ops)
     @inbounds for op_ind in 1:length(ops)
         as = findindex(A[op_rows[op_ind][1][1], col], "Site")
         ops[op_ind] = replaceindex!(ops[op_ind], H.site_ind, as)
         ops[op_ind] = replaceindex!(ops[op_ind], H.site_ind', as')
     end
-    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
     op_ind = findfirst( x -> x == row, op_rows)
     AA = A[row, col] * op * dag(A[row, col])'
     if col > 1
@@ -376,15 +378,15 @@ function nonWorkRow(A::PEPS, L::Environments, R::Environments, H::Operator, row:
 end
 
 function sum_rows_in_col(A::PEPS, L::Environments, R::Environments, H::Operator, row::Int, col::Int, low_row::Int, high_row::Int, above::Bool, IA::ITensor, IB::ITensor)::ITensor
-    Ny, Nx = size(A)
+    Ny, Nx  = size(A)
     op_rows = H.sites
-    is_gpu = !(data(store(A[1,1])) isa Array)
-    ops = deepcopy(H.ops)
+    is_cu   = is_gpu(A) 
+    ops     = deepcopy(H.ops)
     start_row_ = row == op_rows[1][1] ? low_row + 1 : high_row
-    stop_row_ = row == op_rows[1][1] ? high_row : low_row + 1
+    stop_row_  = row == op_rows[1][1] ? high_row : low_row + 1
     start_row_ = min(start_row_, Ny)
-    stop_row_ = min(stop_row_, Ny)
-    step_row = row == op_rows[1][1] ? 1 : -1;
+    stop_row_  = min(stop_row_, Ny)
+    step_row   = row == op_rows[1][1] ? 1 : -1;
     start_row, stop_row = minmax(start_row_, stop_row_)
     op_row_a = H.sites[1][1]
     op_row_b = H.sites[2][1]
@@ -394,8 +396,8 @@ function sum_rows_in_col(A::PEPS, L::Environments, R::Environments, H::Operator,
         ops[op_ind] = replaceindex!(ops[op_ind], H.site_ind, as)
         ops[op_ind] = replaceindex!(ops[op_ind], H.site_ind', as')
     end
-    nwrs  = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    nwrs_ = is_gpu ? cuITensor(1.0) : ITensor(1.0)
+    nwrs  = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    nwrs_ = is_cu ? cuITensor(1.0) : ITensor(1.0)
     Hterm = ITensor()
     if row == op_row_a
         Hterm = IA
@@ -426,7 +428,7 @@ function sum_rows_in_col(A::PEPS, L::Environments, R::Environments, H::Operator,
         end
         Hterm *= IA
     end
-    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
     op_ind = findfirst( x -> x[1] == row, op_rows)
     if op_ind > 0 
         op = ops[op_ind]
@@ -437,9 +439,9 @@ end
 
 function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol, ϕ::ITensor )
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
-    HI = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    IH = is_gpu ? cuITensor(1.0) : ITensor(1.0)
+    is_cu  = is_gpu(A) 
+    HI     = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    IH     = is_cu ? cuITensor(1.0) : ITensor(1.0)
     next_col = side == :left ? 2 : Nx - 1
     @inbounds for work_row in 1:row-1
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
@@ -455,8 +457,8 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol
     cmb = findindex(E.I[row], "Site")
     acmb, acmbi = combiner(IndexSet(ci, ci'), tags="Site")
     replaceindex!(acmb, acmbi, cmb)
-    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
-    op = is_gpu ? cuITensor(op) : op
+    op = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
+    op = is_cu ? cuITensor(op) : op
     HI *= ϕ
     IH *= ϕ
     HI *= op
@@ -473,7 +475,6 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol
         HI *= AA * E.I[work_row]
         IH *= E.H[work_row] * AA
     end
-    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
     AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IH), AAinds)
     @assert hasinds(AAinds, inds(IH))
@@ -482,15 +483,15 @@ end
 
 function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int, ϕ::ITensor)
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu  = is_gpu(A) 
     col == 1  && return buildHIedge(A, R, row, col, :left, ϕ)
     col == Nx && return buildHIedge(A, L, row, col, :right, ϕ)
-    HLI_a = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    HLI_b = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    IHR_a = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    IHR_b = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    HLI   = is_gpu ? cuITensor(1.0) : ITensor(1.0)
-    IHR   = is_gpu ? cuITensor(1.0) : ITensor(1.0)
+    HLI_a = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    HLI_b = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    IHR_a = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    IHR_b = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    HLI   = is_cu ? cuITensor(1.0) : ITensor(1.0)
+    IHR   = is_cu ? cuITensor(1.0) : ITensor(1.0)
     @inbounds for work_row in 1:row-1
         AA = A[work_row, col] * dag(prime(A[work_row, col], "Link"))
         lci = commonindex(A[work_row, col], A[work_row, col-1])
@@ -537,10 +538,9 @@ function buildHIs(A::PEPS, L::Environments, R::Environments, row::Int, col::Int,
     HLI *= HLI_b
     IHR *= IHR_a
     IHR *= IHR_b
-    op   = spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+    op   = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
     HLI *= op
     IHR *= op
-    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
     AAinds = IndexSet(prime(ϕ))
     @assert hasinds(inds(IHR), AAinds)
     @assert hasinds(inds(HLI), AAinds)
@@ -551,11 +551,10 @@ end
 
 function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu  = is_gpu(A) 
     vTerms = ITensor[]#fill(ITensor(), length(H))
-    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
     AAinds = IndexSet(prime(ϕ))
-    dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
+    dummy  = is_cu ? cuITensor(1.0) : ITensor(1.0) 
     @inbounds for opcode in 1:length(H)
         thisVert = dummy 
         op_row_a = H[opcode].sites[1][1]
@@ -582,7 +581,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
                 thisVert *= msi 
             end
             thisVert *= I
-            thisVert *= spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+            thisVert *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
         elseif row == op_row_a
             low_row  = op_row_a - 1
             high_row = op_row_b
@@ -667,10 +666,9 @@ end
 
 function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu  = is_gpu(A) 
     fTerms = Vector{ITensor}(undef, length(H))
-    dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
-    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
+    dummy  = is_cu ? cuITensor(1.0) : ITensor(1.0) 
     AAinds = IndexSet(prime(ϕ))
     @inbounds for opcode in 1:length(H)
         thisField = dummy 
@@ -695,7 +693,7 @@ function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::I
                 thisField *= multiply_side_ident(A[row, col], ci, copy(R.I[row]))
             end
             thisField *= I
-            thisField *= spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+            thisField *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
         else
             low_row  = op_row - 1
             high_row = op_row
@@ -729,9 +727,8 @@ end
 
 function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu  = is_gpu(A) 
     lTerms = Vector{ITensor}(undef, length(H))
-    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
     AAinds = IndexSet(prime(ϕ))
     dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
     @inbounds for opcode in 1:length(H)
@@ -740,7 +737,7 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
         as   = findindex(A[op_row_b, col], "Site")
         op_b = replaceindex!(op_b, H[opcode].site_ind, as)
         op_b = replaceindex!(op_b, H[opcode].site_ind', as')
-        thisHori = is_gpu ? cuITensor(1.0) : ITensor(1.0)
+        thisHori = is_cu ? cuITensor(1.0) : ITensor(1.0)
         if op_row_b != row
             local ancL, I
             if op_row_b > row
@@ -758,7 +755,7 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
                 thisHori *= multiply_side_ident(A[row, col], ci, copy(R.I[row]))
             end
             thisHori *= I
-            thisHori *= spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+            thisHori *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
         else
             low_row = (op_row_b <= row) ? op_row_b - 1 : row - 1;
             high_row = (op_row_b >= row) ? op_row_b + 1 : row + 1;
@@ -787,18 +784,17 @@ end
 
 function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H, row::Int, col::Int, ϕ::ITensor)::Vector{ITensor} 
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu  = is_gpu(A) 
     rTerms = Vector{ITensor}(undef, length(H))
-    #AAinds = IndexSet(inds(A[row, col]), inds(A[row, col]'))
     AAinds = IndexSet(prime(ϕ))
-    dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
+    dummy  = is_cu ? cuITensor(1.0) : ITensor(1.0) 
     @inbounds for opcode in 1:length(H)
         op_row_a = H[opcode].sites[1][1]
         op_a = copy(H[opcode].ops[1])
         as   = findindex(A[op_row_a, col], "Site")
         op_a = replaceindex!(op_a, H[opcode].site_ind, as)
         op_a = replaceindex!(op_a, H[opcode].site_ind', as')
-        thisHori = is_gpu ? cuITensor(1.0) : ITensor(1.0)
+        thisHori = is_cu ? cuITensor(1.0) : ITensor(1.0)
         if op_row_a != row
             local ancR, I
             if op_row_a > row
@@ -816,7 +812,7 @@ function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H,
                 thisHori *= multiply_side_ident(A[row, col], ci, copy(L.I[row]))
             end
             thisHori *= I
-            thisHori *= spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+            thisHori *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
         else
             low_row = (op_row_a <= row) ? op_row_a - 1 : row - 1;
             high_row = (op_row_a >= row) ? op_row_a + 1 : row + 1;
@@ -954,7 +950,6 @@ end
 
 function intraColumnGauge(A::PEPS, col::Int; kwargs...)::PEPS
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
     @inbounds for row in reverse(2:Ny)
         @debug "\tBeginning intraColumnGauge for col $col row $row"
         cmb_is   = IndexSet(findindex(A[row, col], "Site"))
@@ -981,7 +976,7 @@ function simpleUpdate(A::PEPS, col::Int, next_col::Int, H; kwargs...)::PEPS
     do_side::Bool = get(kwargs, :do_side, true)
     τ::Float64    = get(kwargs, :tau, -0.1)
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu  = is_gpu(A) 
     @inbounds for row in Iterators.reverse(1:Ny)
         if do_side
             hori_col   = next_col < col ? next_col : col
@@ -992,7 +987,7 @@ function simpleUpdate(A::PEPS, col::Int, next_col::Int, H; kwargs...)::PEPS
             min_dim    = dim(ci)
             Ua, Sa, Va = svd(A[row, col], si_a, ci; mindim=min_dim, kwargs...)
             Ub, Sb, Vb = svd(A[row, next_col], si_b, ci; mindim=min_dim, kwargs...)
-            Hab_hori   = is_gpu ? cuITensor() : ITensor()
+            Hab_hori   = is_cu ? cuITensor() : ITensor()
             horiH      = getDirectional(vcat(H[:, hori_col]...), Horizontal)
             horiH      = filter(x->x.sites[1][1] == row, horiH)
             for hH in horiH
@@ -1005,9 +1000,9 @@ function simpleUpdate(A::PEPS, col::Int, next_col::Int, H; kwargs...)::PEPS
             cmb, ci   = combiner(findinds(Hab_hori, ("",0)), tags="hab,Site")
             Hab_hori *= cmb
             Hab_hori *= cmb'
-            Hab_mat   = is_gpu ? matrix(collect(Hab_hori)) : matrix(Hab_hori)
+            Hab_mat   = is_cu ? matrix(collect(Hab_hori)) : matrix(Hab_hori)
             expiH_mat = exp(τ*Hab_mat)
-            expiH     = is_gpu ? cuITensor(vec(expiH_mat), ci, ci') : ITensor(expiH_mat, ci, ci')
+            expiH     = is_cu ? cuITensor(vec(expiH_mat), ci, ci') : ITensor(expiH_mat, ci, ci')
             expiH *= cmb
             expiH *= cmb'
              
@@ -1023,7 +1018,7 @@ function simpleUpdate(A::PEPS, col::Int, next_col::Int, H; kwargs...)::PEPS
             min_dim    = dim(ci)
             Ua, Sa, Va = svd(A[row, col], si_a, ci; mindim=min_dim, kwargs...)
             Ub, Sb, Vb = svd(A[row+1, col], si_b, ci; mindim=min_dim, kwargs...)
-            Hab_vert   = is_gpu ? cuITensor() : ITensor()
+            Hab_vert   = is_cu ? cuITensor() : ITensor()
             vertH      = getDirectional(vcat(H[:, col]...), Vertical)
             vertH      = filter(x->x.sites[1][1] == row, vertH)
             for vH in vertH
@@ -1036,9 +1031,9 @@ function simpleUpdate(A::PEPS, col::Int, next_col::Int, H; kwargs...)::PEPS
             cmb, ci   = combiner(findinds(Hab_vert, ("",0)), tags="hab,Site")
             Hab_vert *= cmb
             Hab_vert *= cmb'
-            Hab_mat   = is_gpu ? matrix(collect(Hab_vert)) : matrix(Hab_vert)
+            Hab_mat   = is_cu ? matrix(collect(Hab_vert)) : matrix(Hab_vert)
             expiH_mat = exp(τ*Hab_mat)
-            expiH     = is_gpu ? cuITensor(vec(expiH_mat), ci, ci') : ITensor(expiH_mat, ci, ci')
+            expiH     = is_cu ? cuITensor(vec(expiH_mat), ci, ci') : ITensor(expiH_mat, ci, ci')
             expiH *= cmb
             expiH *= cmb'
             bond  = noprime(expiH * Ua * Ub)
@@ -1052,7 +1047,7 @@ end
 
 function buildAncs(A::PEPS, L::Environments, R::Environments, H, col::Int)
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_gpu = is_gpu(A) 
     dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
     @debug "\tMaking ancillary identity terms for col $col"
     Ia = makeAncillaryIs(A, L, R, col)
@@ -1094,7 +1089,7 @@ end
 
 function updateAncs(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int)
     Ny, Nx = size(A)
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_gpu = is_gpu(A) 
    
     Is, Vs, Fs, Ls, Rs = AncEnvs
     @debug "\tUpdating ancillary identity terms for col $col row $row"
@@ -1157,7 +1152,7 @@ end
 
 function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int; kwargs...)
     Ny, Nx        = size(A)
-    is_gpu        = !(data(store(A[1,1])) isa Array)
+    is_cu         = is_gpu(A) 
     field_H_terms = getDirectional(vcat(H[:, col]...), Field)
     vert_H_terms  = getDirectional(vcat(H[:, col]...), Vertical)
     @debug "\tBuilding H for col $col row $row"
@@ -1205,7 +1200,7 @@ function optimizeLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, r
             replaceindex!(newU, new_ci, old_ci)
             A[row+1, col] = newU
             if row < Ny - 1
-                nI    = spinI(findindex(A[row+1, col], "Site"); is_gpu=is_gpu)
+                nI    = spinI(findindex(A[row+1, col], "Site"); is_gpu=is_cu)
                 newAA = A[row+1, col] * nI * dag(A[row+1, col])'
                 if col > 1
                     ci     = commonindex(A[row+1, col], A[row+1, col-1])
