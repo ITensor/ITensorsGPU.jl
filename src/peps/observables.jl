@@ -17,8 +17,9 @@ function measureXmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}
     ϕ  = A[1, col] * A[2, col]
     fT = fieldTerms(A, tL, tR, (above=AI,), (above=AF,), Xs, 1, col, ϕ)
     N  = buildN(A, tL, tR, (above=AI,), 1, col, ϕ)
+    den = scalar(N * dag(ϕ'))
     for row in 1:Ny
-        measuredX[row] = scalar(fT[row] * dag(ϕ)')/scalar(N * dag(ϕ'))
+        measuredX[row] = scalar(fT[row] * dag(ϕ)')/den
     end
     return measuredX
 end

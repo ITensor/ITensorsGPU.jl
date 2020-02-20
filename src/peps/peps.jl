@@ -324,14 +324,10 @@ function buildN(A::PEPS, L::Environments, R::Environments, IEnvs, row::Int, col:
     Ny, Nx   = size(A)
     is_cu    = is_gpu(A)
     up_row   = row + 1
-    N        = spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
-    N       *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
-    workingN = N
+    #workingN = N
+    workingN = ϕ
     if row > 1
         workingN *= IEnvs[:below][row - 1]
-    end
-    if up_row < Ny
-        workingN *= IEnvs[:above][end - up_row]
     end
     if col > 1
         ci = commonindex(A[row, col], A[row, col-1])
@@ -339,12 +335,16 @@ function buildN(A::PEPS, L::Environments, R::Environments, IEnvs, row::Int, col:
         ci = commonindex(A[up_row, col], A[up_row, col-1])
         workingN *= multiply_side_ident(A[up_row, col], ci, copy(L.I[up_row])) 
     end
-    workingN *= ϕ
+    workingN *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
+    workingN *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
     if col < Nx
         ci = commonindex(A[row, col], A[row, col+1])
         workingN *= multiply_side_ident(A[row, col], ci, copy(R.I[row])) 
         ci = commonindex(A[up_row, col], A[up_row, col+1])
         workingN *= multiply_side_ident(A[up_row, col], ci, copy(R.I[up_row])) 
+    end
+    if up_row < Ny
+        workingN *= IEnvs[:above][end - up_row]
     end
     return workingN
 end
@@ -475,7 +475,7 @@ function buildHIedge( A::PEPS, E::Environments, row::Int, col::Int, side::Symbol
     cmb = findindex(E.I[up_row], "Site")
     acmb, acmbi = combiner(IndexSet(ci, ci'), tags="Site")
     replaceindex!(acmb, acmbi, cmb)
-    op = spinI(findindex(A[up_row, col], "Site"); is_gpu=is_gpu)
+    op = spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
     HI *= op
     IH *= op
     HI *= E.I[up_row] * acmb
@@ -684,7 +684,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             end
             thisVert *= AIH 
             thisVert *= op_b
-            thisVert *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_gpu)
+            thisVert *= spinI(findindex(A[up_row, col], "Site"); is_gpu=is_cu)
         elseif up_row == op_row_a
             low_row  = op_row_a - 2
             high_row = op_row_b
@@ -721,7 +721,7 @@ function verticalTerms(A::PEPS, L::Environments, R::Environments, AI, AV, H, row
             end
             thisVert *= AIL 
             thisVert *= op_a
-            thisVert *= spinI(findindex(A[row, col], "Site"); is_gpu=is_gpu)
+            thisVert *= spinI(findindex(A[row, col], "Site"); is_gpu=is_cu)
         end
         @assert hasinds(inds(thisVert), AAinds) "inds of thisVert and AAinds differ!\n$(inds(thisVert))\n$AAinds\n"
         @assert hasinds(AAinds, inds(thisVert)) "inds of thisVert and AAinds differ!\n$(inds(thisVert))\n$AAinds\n"
@@ -795,13 +795,13 @@ function fieldTerms(A::PEPS, L::Environments, R::Environments, AI, AF, H, row::I
                 op  = replaceindex!(op, H[opcode].site_ind, sA) 
                 op  = replaceindex!(op, H[opcode].site_ind', sA')
                 thisField *= op
-                thisField *= spinI(suA; is_gpu=is_gpu)
+                thisField *= spinI(suA; is_gpu=is_cu)
             else
                 op  = copy(H[opcode].ops[1])
                 op  = replaceindex!(op, H[opcode].site_ind, suA) 
                 op  = replaceindex!(op, H[opcode].site_ind', suA')
                 thisField *= op
-                thisField *= spinI(sA; is_gpu=is_gpu)
+                thisField *= spinI(sA; is_gpu=is_cu)
             end
         end
         @assert hasinds(inds(thisField), AAinds)
@@ -816,7 +816,7 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
     is_cu  = is_gpu(A) 
     lTerms = Vector{ITensor}(undef, length(H))
     AAinds = IndexSet(prime(ϕ))
-    dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
+    dummy  = is_cu ? cuITensor(1.0) : ITensor(1.0) 
     up_row = row + 1
     @inbounds for opcode in 1:length(H)
         op_row_b = H[opcode].sites[2][1]
@@ -871,11 +871,11 @@ function connectLeftTerms(A::PEPS, L::Environments, R::Environments, AI, AL, H, 
             if row == op_row_b
                 op_b = replaceindex!(op_b, H[opcode].site_ind, as)
                 op_b = replaceindex!(op_b, H[opcode].site_ind', as')
-                thisHori *= spinI(uas; is_gpu=is_gpu)
+                thisHori *= spinI(uas; is_gpu=is_cu)
             else
                 op_b = replaceindex!(op_b, H[opcode].site_ind, uas)
                 op_b = replaceindex!(op_b, H[opcode].site_ind', uas')
-                thisHori *= spinI(as; is_gpu=is_gpu)
+                thisHori *= spinI(as; is_gpu=is_cu)
             end
             thisHori *= op_b
         end
@@ -942,11 +942,11 @@ function connectRightTerms(A::PEPS, L::Environments, R::Environments, AI, AR, H,
             if row == op_row_a
                 op_a = replaceindex!(op_a, H[opcode].site_ind, as)
                 op_a = replaceindex!(op_a, H[opcode].site_ind', as')
-                thisHori *= spinI(uas; is_gpu=is_gpu)
+                thisHori *= spinI(uas; is_gpu=is_cu)
             else
                 op_a = replaceindex!(op_a, H[opcode].site_ind, uas)
                 op_a = replaceindex!(op_a, H[opcode].site_ind', uas')
-                thisHori *= spinI(as; is_gpu=is_gpu)
+                thisHori *= spinI(as; is_gpu=is_cu)
             end
             thisHori *= op_a
         end
@@ -1007,10 +1007,6 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
             end
         end
     end
-    println()
-    println("After vTs")
-    CuArrays.memory_status()
-    flush(stdout)
     @debug "\t\tBuilding field H terms row $row col $col"
     @timeit "build field terms" begin
         fTs = fieldTerms(A, L, R, AncEnvs[:I], AncEnvs[:F], field_H_terms, row, col, ϕ)
@@ -1023,10 +1019,6 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
             end
         end
     end
-    println()
-    println("After fTs")
-    CuArrays.memory_status()
-    flush(stdout)
     if col > 1
         @debug "\t\tBuilding left H terms row $row col $col"
         @timeit "build left terms" begin
@@ -1042,10 +1034,6 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
         end
         @debug "\t\tBuilt left terms"
     end
-    println()
-    println("After connect lefts")
-    CuArrays.memory_status()
-    flush(stdout)
     if col < Nx
         @debug "\t\tBuilding right H terms row $row col $col"
         @timeit "build right terms" begin
@@ -1061,10 +1049,6 @@ function buildLocalH(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row:
         end
         @debug "\t\tBuilt right terms"
     end
-    println()
-    println("After connect right")
-    CuArrays.memory_status()
-    flush(stdout)
     return Hs, N
 end
 
@@ -1167,8 +1151,8 @@ end
 
 function buildAncs(A::PEPS, L::Environments, R::Environments, H, col::Int)
     Ny, Nx = size(A)
-    is_gpu = is_gpu(A) 
-    dummy  = is_gpu ? cuITensor(1.0) : ITensor(1.0) 
+    is_cu = is_gpu(A) 
+    dummy = is_cu ? cuITensor(1.0) : ITensor(1.0) 
     @debug "\tMaking ancillary identity terms for col $col"
     Ia = makeAncillaryIs(A, L, R, col)
     #Ib = fill(dummy, Ny)
@@ -1209,8 +1193,6 @@ end
 
 function updateAncs(A::PEPS, L::Environments, R::Environments, AncEnvs, H, row::Int, col::Int)
     Ny, Nx = size(A)
-    is_gpu = is_gpu(A) 
-   
     Is, Vs, Fs, Ls, Rs = AncEnvs
     @debug "\tUpdating ancillary identity terms for col $col row $row"
     Ib = updateAncillaryIs(A, Is[:below], L, R, row, col)
@@ -1254,19 +1236,8 @@ end
 Base.eltype(M::ITensorMap)  = eltype(M.A)
 Base.size(M::ITensorMap)    = dim(M.A[M.row, M.col] * M.A[M.row+1, M.col])
 function (M::ITensorMap)(v::ITensor) 
-    println()
-    println("Before build local H")
-    CuArrays.memory_status()
-    flush(stdout)
     Hs, N  = buildLocalH(M.A, M.L, M.R, M.AncEnvs, M.H, M.row, M.col, v)
-    GC.gc(true)
     localH = sum(Hs)
-    println()
-    println("After build local H")
-    CuArrays.memory_status()
-    flush(stdout)
-    println()
-    println()
     return noprime(localH)
 end
 
@@ -1480,10 +1451,6 @@ function doSweeps(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, H
             println("SWEEP LEFT $sweep")
             A, Ls, Rs = leftwardSweep(A, Ls, Rs, H; sweep=sweep, mindim=mindim, maxdim=maxdim, simple_update_cutoff=simple_update_cutoff, overlap_cutoff=0.999, cutoff=cutoff, env_maxdim=env_maxdim)
         end
-        CuArrays.memory_status()
-        GC.gc(true)
-        CuArrays.memory_status()
-        flush(stdout)
         if sweep == simple_update_cutoff - 1
             for col in reverse(2:Nx)
                 A = gaugeColumn(A, col, :left; mindim=1, maxdim=maxdim, cutoff=cutoff, env_maxdim=env_maxdim)
