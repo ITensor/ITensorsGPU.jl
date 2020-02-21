@@ -10,6 +10,7 @@ using TimerOutputs
 using StaticArrays
 using ITensors
 import CuArrays: CuArray, CuMatrix, CuVector
+import CuArrays.CUTENSOR: cutensorContractionPlan_t
 import ITensors: randn!, compute_contraction_labels,
                  plussers, DenseTensor, eigenHermitian,
                  TensorStorage, similar_type,
@@ -28,6 +29,8 @@ include("tensor/cudiag.jl")
 include("cuitensor.jl")
 include("mps/cumps.jl")
 include("mps/cumpo.jl")
+
+const ContractionPlans = Dict{String, cutensorContractionPlan_t}()
 
 export cuITensor,
        randomCuITensor,

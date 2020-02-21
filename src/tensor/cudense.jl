@@ -192,10 +192,39 @@ function _contract!(CT::CuDenseTensor{El,NC},
   for (ii, ic) in enumerate(Cinds)
       ctcinds[ii] = findfirst(x->x==ic, ind_dict)
   end
-  
-  id_op = CuArrays.CUTENSOR.CUTENSOR_OP_IDENTITY
-  CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op)
-  copyto!(CT.store.data, vec(Cdata))
+  id_op    = CuArrays.CUTENSOR.CUTENSOR_OP_IDENTITY
+  #dict_key = Dict(vcat(zip(ctcinds, Cdims), zip(ctainds, Adims), zip(ctbinds, Bdims))) 
+  dict_key = ""
+  for cc in zip(ctcinds, Cdims)
+      dict_key *= string(cc[1]) * "," * string(cc[2]) * ","
+  end 
+  for aa in zip(ctainds, Adims)
+      dict_key *= string(aa[1]) * "," * string(aa[2]) * ","
+  end 
+  for bb in zip(ctbinds, Bdims)
+      dict_key *= string(bb[1]) * "," * string(bb[2])
+  end 
+  if haskey(ContractionPlans, dict_key)
+      Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; plan=ContractionPlans[dict_key], pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+  else
+      # loop through all algos
+      # pick the fastest one
+      # store that plan!
+      #maxAlgos = Ref{Cint}()
+      #CuArrays.CUTENSOR.cutensorContractionMaxAlgos(maxAlgos) #smthing wrong here
+      best_time = 1e6
+      best_plan = nothing
+      for algo in Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_TTGT)
+          this_plan = CuArrays.CUTENSOR.contraction_plan(Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo), pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+          Cdata, this_time, bytes, gctime, memallocs = @timed CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; plan=this_plan, pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+          if this_time < best_time
+              best_time = this_time
+              best_plan = this_plan
+          end
+      end
+      ContractionPlans[dict_key] = best_plan
+  end
+  return Cdata
 end
 
 function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
@@ -296,7 +325,6 @@ function Base.permute!(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   end
   
   CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
-  #copyto!(B.store.data, reshape(reshapeBdata, length(B.store.data)))
   return vec(reshapeBdata) 
 end
 
