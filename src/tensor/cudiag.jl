@@ -3,10 +3,6 @@ export CuDiag
 const CuDiag{ElT,VecT}       = Diag{ElT,VecT} where {VecT<:CuArray{ElT}}
 const NonuniformCuDiagTensor{ElT,N,StoreT,IndsT} = Tensor{ElT,N,StoreT,IndsT} where {StoreT<:CuDiag}
 
-function Base.promote_rule(::Type{DenseT1}, ::Type{Diag{ElT2,VecT2}}) where {DenseT1<:CuDense, ElT2,VecT2<:Number}
-  return promote_type(DenseT1, ElT2)
-end
-
 function Base.promote_rule(::Type{Diag{ElT2,VecT2}}, ::Type{CuDense}) where {ElT2,VecT2<:Number}
     return promote_type(DenseT1, ElT2)
 end

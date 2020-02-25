@@ -54,31 +54,6 @@ function permutedims!!(B::Tensor{ElT,N,StoreT,IndsB},
   return B
 end
 
-function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
-  Ais = inds(A)
-  Bis = inds(B)
-  ind_dict = Vector{Index}()
-  for (idx, i) in enumerate(Ais)
-      push!(ind_dict, i)
-  end
-  Adata = data(store(A))
-  Bdata = data(store(B))
-  reshapeBdata = reshape(Bdata,dims(Bis))
-  reshapeAdata = reshape(Adata,dims(Ais))
-  ctainds = zeros(Int, length(Ais))
-  ctbinds = zeros(Int, length(Bis))
-  for (ii, ia) in enumerate(Ais)
-      ctainds[ii] = findfirst(x->x==ia, ind_dict)
-  end
-  for (ii, ib) in enumerate(Bis)
-      ctbinds[ii] = findfirst(x->x==ib, ind_dict)
-  end
-  
-  CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
-  copyto!(B.store.data, reshape(reshapeBdata, length(B.store.data)))
-  return vec(reshapeBdata) 
-end
-
 function Base.similar(::Type{<:CuDenseTensor{ElT}},
                       inds) where {ElT}
     storage_arr = CuVector{ElT}(undef,dim(inds)) 
@@ -193,7 +168,6 @@ function _contract!(CT::CuDenseTensor{El,NC},
       ctcinds[ii] = findfirst(x->x==ic, ind_dict)
   end
   id_op    = CuArrays.CUTENSOR.CUTENSOR_OP_IDENTITY
-  #dict_key = Dict(vcat(zip(ctcinds, Cdims), zip(ctainds, Adims), zip(ctbinds, Bdims))) 
   dict_key = ""
   for cc in zip(ctcinds, Cdims)
       dict_key *= string(cc[1]) * "," * string(cc[2]) * ","
@@ -202,27 +176,58 @@ function _contract!(CT::CuDenseTensor{El,NC},
       dict_key *= string(aa[1]) * "," * string(aa[2]) * ","
   end 
   for bb in zip(ctbinds, Bdims)
-      dict_key *= string(bb[1]) * "," * string(bb[2])
+      dict_key *= string(bb[1]) * "," * string(bb[2]) * ","
   end 
+  #Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
   if haskey(ContractionPlans, dict_key)
-      Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; plan=ContractionPlans[dict_key], pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+      #Cdata, t, b, g, m = @timed begin
+          dict_val = ContractionPlans[dict_key]
+          algo  = dict_val
+          #plan  = dict_val[2]
+          #Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=algo, plan=plan, pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+          Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX, algo=algo)
+      #end
+      #println("Evaluating contraction time $t")
+      #flush(stdout)
   else
-      # loop through all algos
-      # pick the fastest one
-      # store that plan!
-      #maxAlgos = Ref{Cint}()
-      #CuArrays.CUTENSOR.cutensorContractionMaxAlgos(maxAlgos) #smthing wrong here
-      best_time = 1e6
-      best_plan = nothing
-      for algo in Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_TTGT)
-          this_plan = CuArrays.CUTENSOR.contraction_plan(Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo), pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
-          Cdata, this_time, bytes, gctime, memallocs = @timed CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; plan=this_plan, pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
-          if this_time < best_time
-              best_time = this_time
-              best_plan = this_plan
+      #dv, t, b, g, m = @timed begin
+          # loop through all algos
+          # pick the fastest one
+          # store that plan!
+          best_time = 1e6
+          best_plan = nothing
+          best_algo = nothing
+          max_algos = Ref{Int32}(C_NULL)
+          CuArrays.CUTENSOR.cutensorContractionMaxAlgos(max_algos)
+          algos = collect(Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_TTGT))
+          algos = vcat(algos, collect(Cint(1):Cint(max_algos[] - 1))) # GETT is -4
+          for algo in reverse(algos)
+              try
+                  #this_plan = CuArrays.CUTENSOR.contraction_plan(Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo), pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+                  #Cdata, this_time, bytes, gctime, memallocs = @timed CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo), plan=this_plan, pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+                  Cdata, this_time, bytes, gctime, memallocs = @timed CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo), pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
+                  #println("\talgo: ", CuArrays.CUTENSOR.cutensorAlgo_t(algo), ", time: $this_time")
+                  #flush(stdout)
+                  if this_time < best_time
+                      best_time = this_time
+                      #best_plan = this_plan
+                      best_algo = CuArrays.CUTENSOR.cutensorAlgo_t(algo)
+                  end
+              catch
+                  @warn "Algorithm $algo not supported"
+              end
           end
-      end
-      ContractionPlans[dict_key] = best_plan
+          #=println("\tkey: $dict_key")
+          println("\tbest time: $best_time")
+          println("\tbest algo: $best_algo")
+          println()
+          println()
+          flush(stdout)=#
+          #ContractionPlans[dict_key] = (best_algo, best_plan)
+          ContractionPlans[dict_key] = best_algo
+      #end
+      #println("Selecting  contraction time $t")
+      #flush(stdout)
   end
   return Cdata
 end
@@ -302,7 +307,6 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   end
   
   CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
-  #copyto!(B.store.data, reshape(reshapeBdata, length(B.store.data)))
   return vec(reshapeBdata) 
 end
 
