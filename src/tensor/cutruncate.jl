@@ -21,10 +21,9 @@ function truncate!(P::CuVector{Float64};
       #Zero out any negative weight
       #neg_z_f = (!signbit(x) ? x : 0.0)
       rP = map(x -> !signbit(x) ? x : 0.0, P)
-      #rP = reverse(P)
       n = origm
       truncerr = 0.0
-      if n >= maxdim
+      if n > maxdim
           truncerr = sum(rP[1:n-maxdim])
           n = maxdim
       end
@@ -53,13 +52,24 @@ function truncate!(P::CuVector{Float64};
         err_rP  = sub_arr ./ abs.(sub_arr)
         flags   = reinterpret(Float64, (signbit.(err_rP) .<< 1 .& 2) .<< 61)
         cut_ind = CuArrays.CUBLAS.iamax(err_rP .* flags) - 1
-        truncerr += sum(rP[1:cut_ind])
-        n = min(maxdim, length(P) - cut_ind)
-        n = max(n, mindim)
-        if scale==0.0
-          truncerr = 0.0
-        else
-          truncerr /= scale
+        if cut_ind > 0
+            truncerr += sum(rP[1:cut_ind])
+            n = min(maxdim, length(P) - cut_ind)
+            n = max(n, mindim)
+            if scale==0.0
+              truncerr = 0.0
+            else
+              truncerr /= scale
+            end
+        else # all are above cutoff
+            truncerr += sum(rP[1:maxdim])
+            n = min(maxdim, length(P) - cut_ind)
+            n = max(n, mindim)
+            if scale==0.0
+              truncerr = 0.0
+            else
+              truncerr /= scale
+            end
         end
       end
   end

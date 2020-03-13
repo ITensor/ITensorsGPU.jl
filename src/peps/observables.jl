@@ -1,14 +1,14 @@
 function measureXmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, col; kwargs...)
     s = Index(2, "Site,SpinInd")
     X = ITensor(s, s')
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu         = is_gpu(A) 
     X[s(1), s'(2)] = 0.5
     X[s(2), s'(1)] = 0.5
     Ny, Nx = size(A)
     dummyI   = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
     measuredX = zeros(Ny)
-    op = is_gpu ? cuITensor(X) : X
+    op = is_cu ? cuITensor(X) : X
     Xs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
     tR = col == Nx ? dummyEnv : Rs[col+1]
     tL = col == 1  ? dummyEnv : Ls[col-1]
@@ -25,14 +25,14 @@ end
 function measureZmag(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Environments}, col; kwargs...)
     s = Index(2, "Site,SpinInd")
     Z = ITensor(s, s')
-    is_gpu = !(data(store(A[1,1])) isa Array)
+    is_cu         = is_gpu(A) 
     Z[s(1), s'(1)] = 0.5
     Z[s(2), s'(2)] = -0.5
     Nx, Ny = size(A)
     dummyI   = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
     measuredZ = zeros(Ny)
-    op = is_gpu ? cuITensor(Z) : Z 
+    op = is_cu ? cuITensor(Z) : Z 
     Zs = [Operator([row=>col], [op], s, Field) for row in 1:Ny]
     #A  = intraColumnGauge(A, col; kwargs...)
     tR = col == Nx ? dummyEnv : Rs[col+1]
@@ -60,10 +60,10 @@ function measureSmagVertical(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Envir
     dummyI     = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv   = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
     measuredSV = zeros(Ny)
-    is_gpu     = !(data(store(A[1,1])) isa Array)
-    Z = is_gpu ? cuITensor(Z) : Z
-    P = is_gpu ? cuITensor(P) : P
-    M = is_gpu ? cuITensor(M) : M
+    is_cu     = is_gpu(A) 
+    Z = is_cu ? cuITensor(Z) : Z
+    P = is_cu ? cuITensor(P) : P
+    M = is_cu ? cuITensor(M) : M
     SVs = Operator[]
     for row in 1:Ny-1
         push!(SVs, Operator([row=>col, row+1=>col], [0.5*P, M], s, Vertical))
@@ -94,10 +94,10 @@ function measureSmagHorizontal(A::PEPS, Ls::Vector{Environments}, Rs::Vector{Env
     M = ITensor(s, s')
     P[s(1), s'(2)] = 1.0
     M[s(2), s'(1)] = 1.0
-    is_gpu     = !(data(store(A[1,1])) isa Array)
-    Z = is_gpu ? cuITensor(Z) : Z
-    P = is_gpu ? cuITensor(P) : P
-    M = is_gpu ? cuITensor(M) : M
+    is_cu     = is_gpu(A) 
+    Z = is_cu ? cuITensor(Z) : Z
+    P = is_cu ? cuITensor(P) : P
+    M = is_cu ? cuITensor(M) : M
     Nx, Ny = size(A)
     dummyI     = MPS(Ny, fill(ITensor(1.0), Ny), 0, Ny+1)
     dummyEnv   = Environments(dummyI, dummyI, fill(ITensor(), 1, Ny))
