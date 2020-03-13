@@ -10,12 +10,13 @@ function Dense{T, S}(x::T, size::Integer) where {T, S<:CuArray{<:T}}
     Dense{T, S}(arr)
 end
 Base.collect(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
+Base.complex(::Type{CuDense{ElT, CuVector{ElT, Nothing}}}) where {ElT<:Number} = Dense{complex(ElT),CuVector{complex(ElT), Nothing}}
 
 *(D::Dense{T, AT},x::S) where {T,AT<:CuArray,S<:Number} = Dense(x .* data(D))
 
 Base.:(==)(::Type{<:CuDense{ElT1,CVec1}}, ::Type{<:CuDense{ElT2,CVec2}}) where {ElT1,ElT2,CVec1,CVec2} = (ElT1 == ElT2)
-Base.getindex(D::CuDense)       = collect(data(D))[]
-Base.getindex(D::CuDenseTensor) = store(D)[]
+Base.getindex(D::CuDense{<:Number})       = collect(data(D))[]
+Base.getindex(D::CuDenseTensor{<:Number, 0}) = store(D)[]
 LinearAlgebra.norm(T::CuDenseTensor) = norm(data(store(T)))
 
 # This is for type promotion for Scalar*Dense
@@ -212,7 +213,7 @@ function _contract!(CT::CuDenseTensor{El,NC},
   else
       Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op)
   end
-  return Cdata
+  return parent(Cdata)
 end
 
 function Base.:+(B::CuDenseTensor, A::CuDenseTensor)

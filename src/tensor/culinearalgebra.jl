@@ -70,8 +70,8 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   return U,S,V,spec
 end
 
-function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
-                        kwargs...) where {ElT,IndsT}
+function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
+                        kwargs...) where {ElT<:Union{Real,Complex},IndsT}
   ispossemidef::Bool = get(kwargs,:ispossemidef,false)
   maxdim::Int = get(kwargs,:maxdim,minimum(dims(T)))
   mindim::Int = get(kwargs,:mindim,1)
@@ -80,9 +80,9 @@ function eigenHermitian(T::CuDenseTensor{ElT,2,IndsT};
   doRelCutoff::Bool = get(kwargs,:doRelCutoff,true)
   local DM, UM 
   if ElT <: Complex
-    DM, UM = CUSOLVER.heevd!('V', 'U', matrix(T))
+      DM, UM = CUSOLVER.heevd!('V', 'U', matrix(parent(T)))
   else
-    DM, UM = CUSOLVER.syevd!('V', 'U', matrix(T))
+      DM, UM = CUSOLVER.syevd!('V', 'U', matrix(parent(T)))
   end
   DM_ = reverse(DM)
   truncerr, docut, DM = truncate!(DM_;maxdim=maxdim, cutoff=cutoff, absoluteCutoff=absoluteCutoff, doRelCutoff=doRelCutoff)
