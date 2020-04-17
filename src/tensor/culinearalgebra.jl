@@ -22,6 +22,19 @@ function LinearAlgebra.exp(T::CuDenseTensor{ElT,2}) where {ElT,IndsT}
   return Tensor(Dense(vec(expTM)),inds(T))
 end
 
+"""
+  CuSpectrum
+contains the (truncated) density matrix eigenvalue spectrum which is computed during a
+decomposition done by `svd` or `eigen`. In addition stores the truncation error.
+"""
+struct CuSpectrum
+  eigs::CuVector{Float64}
+  truncerr::Float64
+end
+
+eigs(s::CuSpectrum) = s.eigs
+truncerror(s::CuSpectrum) = s.truncerr
+
 function expHermitian(T::CuDenseTensor{ElT,2}) where {ElT,IndsT}
   # exp(::Hermitian/Symmetric) returns Hermitian/Symmetric,
   # so extract the parent matrix
@@ -37,7 +50,10 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   absoluteCutoff::Bool = get(kwargs,:absoluteCutoff,false)
   doRelCutoff::Bool = get(kwargs,:doRelCutoff,true)
   fastSVD::Bool = get(kwargs,:fastSVD,false)
-  MU,MS,MV = CUSOLVER.svd(array(T))
+  aT = array(T)
+  @timeit "CUSOLVER svd" begin
+      MU,MS,MV = CUSOLVER.svd!(aT)
+  end
   #conj!(MV)
   P = MS.^2
   truncerr, docut, P = truncate!(P;mindim=mindim,
@@ -45,7 +61,7 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
               cutoff=cutoff,
               absoluteCutoff=absoluteCutoff,
               doRelCutoff=doRelCutoff)
-  spec = Spectrum(P,truncerr)
+  spec = CuSpectrum(P,truncerr)
   dS = length(P)
   if dS < length(MS)
     MU = MU[:,1:dS]
@@ -63,10 +79,10 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   Sdata      = CuArrays.zeros(ElT, dS * dS)
   dsi        = diagind(reshape(Sdata, dS, dS), 0)
   Sdata[dsi] = MS
-  MV_ = CuArrays.zeros(ElT, length(MV))
-  copyto!(MV_, vec(MV))
+  #MV_ = CuArrays.zeros(ElT, length(MV))
+  #copyto!(MV_, vec(MV))
   S = Tensor(Dense(Sdata),Sinds)
-  V = Tensor(Dense(MV_),Vinds)
+  V = Tensor(Dense(vec(MV)),Vinds)
   return U,S,V,spec
 end
 
@@ -78,15 +94,19 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
   cutoff::Float64 = get(kwargs,:cutoff,0.0)
   absoluteCutoff::Bool = get(kwargs,:absoluteCutoff,false)
   doRelCutoff::Bool = get(kwargs,:doRelCutoff,true)
-  local DM, UM 
-  if ElT <: Complex
-      DM, UM = CUSOLVER.heevd!('V', 'U', matrix(parent(T)))
-  else
-      DM, UM = CUSOLVER.syevd!('V', 'U', matrix(parent(T)))
+  @timeit "CUSOLVER eigen" begin
+      local DM, UM
+      if ElT <: Complex
+          DM, UM = CUSOLVER.heevd!('V', 'U', matrix(parent(T)))
+      else
+          DM, UM = CUSOLVER.syevd!('V', 'U', matrix(parent(T)))
+      end
   end
   DM_ = reverse(DM)
-  truncerr, docut, DM = truncate!(DM_;maxdim=maxdim, cutoff=cutoff, absoluteCutoff=absoluteCutoff, doRelCutoff=doRelCutoff)
-  spec = Spectrum(DM,truncerr)
+  @timeit "truncate" begin
+      truncerr, docut, DM = truncate!(DM_;maxdim=maxdim, cutoff=cutoff, absoluteCutoff=absoluteCutoff, doRelCutoff=doRelCutoff)
+  end
+  spec = CuSpectrum(DM,truncerr)
   dD = length(DM)
   dV = reverse(UM, dims=2)
   if dD < size(dV,2)
@@ -98,9 +118,9 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
   v = eltype(IndsT)(dD)
   Uinds = IndsT((ind(T,1),u))
   Dinds = IndsT((u,v))
-  dV_ = CuArrays.zeros(ElT, length(dV))
-  copyto!(dV_, vec(dV))
-  U = Tensor(Dense(dV_),Uinds)
+  #dV_ = CuArrays.zeros(ElT, length(dV))
+  #copyto!(dV_, vec(dV))
+  U = Tensor(Dense(vec(dV)),Uinds)
   D = Tensor(Diag(real.(DM)),Dinds)
   return U,D,spec
 end
@@ -113,12 +133,12 @@ function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}
   Qinds = IndsT((ind(T,1),q))
   Rinds = IndsT((q,ind(T,2)))
   QM = CuMatrix(QM)
-  Q_ = CuArrays.zeros(ElT, length(QM))
-  R_ = CuArrays.zeros(ElT, length(RM))
-  copyto!(Q_, vec(QM))
-  copyto!(R_, vec(RM))
-  Q = Tensor(Dense(Q_),Qinds)
-  R = Tensor(Dense(R_),Rinds)
+  #Q_ = CuArrays.zeros(ElT, length(QM))
+  #R_ = CuArrays.zeros(ElT, length(RM))
+  #copyto!(Q_, vec(QM))
+  #copyto!(R_, vec(RM))
+  Q = Tensor(Dense(vec(QM)),Qinds)
+  R = Tensor(Dense(vec(RM)),Rinds)
   return Q,R
 end
 
