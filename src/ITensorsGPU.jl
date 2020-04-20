@@ -12,14 +12,14 @@ using ITensors
 import CuArrays: CuArray, CuMatrix, CuVector
 import CuArrays.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
 import ITensors: randn!, compute_contraction_labels,
-                 plussers, DenseTensor, eigen,
-                 TensorStorage, similar_type,
+                 plussers, eigen, similar_type,
                  scale!, getperm, unioninds, array, matrix, vector,
                  polar, tensors, truncate!
-import ITensors.Tensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
+import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
-                         outer!, outer!!, is_trivial_permutation, ind, permutedims!!
+                         outer!, outer!!, is_trivial_permutation, ind, permutedims!!, Dense, DenseTensor, Combiner,
+                         Tensor
 import Base.*
 include("tensor/cudense.jl")
 include("tensor/culinearalgebra.jl")

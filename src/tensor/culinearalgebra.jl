@@ -22,19 +22,6 @@ function LinearAlgebra.exp(T::CuDenseTensor{ElT,2}) where {ElT,IndsT}
   return Tensor(Dense(vec(expTM)),inds(T))
 end
 
-"""
-  CuSpectrum
-contains the (truncated) density matrix eigenvalue spectrum which is computed during a
-decomposition done by `svd` or `eigen`. In addition stores the truncation error.
-"""
-struct CuSpectrum
-  eigs::CuVector{Float64}
-  truncerr::Float64
-end
-
-eigs(s::CuSpectrum) = s.eigs
-truncerror(s::CuSpectrum) = s.truncerr
-
 function expHermitian(T::CuDenseTensor{ElT,2}) where {ElT,IndsT}
   # exp(::Hermitian/Symmetric) returns Hermitian/Symmetric,
   # so extract the parent matrix
@@ -61,7 +48,7 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
               cutoff=cutoff,
               absoluteCutoff=absoluteCutoff,
               doRelCutoff=doRelCutoff)
-  spec = CuSpectrum(P,truncerr)
+  spec = Spectrum(P,truncerr)
   dS = length(P)
   if dS < length(MS)
     MU = MU[:,1:dS]
@@ -106,7 +93,7 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
   @timeit "truncate" begin
       truncerr, docut, DM = truncate!(DM_;maxdim=maxdim, cutoff=cutoff, absoluteCutoff=absoluteCutoff, doRelCutoff=doRelCutoff)
   end
-  spec = CuSpectrum(DM,truncerr)
+  spec = Spectrum(DM,truncerr)
   dD = length(DM)
   dV = reverse(UM, dims=2)
   if dD < size(dV,2)
