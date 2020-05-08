@@ -19,5 +19,5 @@ test:nightly:
 
 coverage:
   extends:
-    - .test:1.4
+    - .julia:1.4
     - .coverage
