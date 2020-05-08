@@ -9,7 +9,7 @@ test:1.4:
     - nvidia
   image: nvidia/cuda:latest
   script:
-    - julia -e 'using Pkg; Pkg.develop("https://github.com/ITensor/ITensors.jl.git");'
+    - julia -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
 
 test:nightly:
   extends:
