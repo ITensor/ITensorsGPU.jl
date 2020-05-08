@@ -4,7 +4,7 @@
 
 [![codecov](https://codecov.io/gh/ITensor/ITensorsGPU.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ITensor/ITensorsGPU.jl)
 
-[![gitlab-ci][https://gitlab.com/JuliaGPU/ITensorsGPU-jl/badges/master/pipeline.svg]][https://gitlab.com/JuliaGPU/ITensorsGPU-jl/commits/master]
+[![gitlab-ci](https://gitlab.com/JuliaGPU/ITensorsGPU-jl/badges/master/pipeline.svg)][https://gitlab.com/JuliaGPU/ITensorsGPU-jl/commits/master]
 
 This package is meant to extend the functionality of [ITensors.jl](https://github.com/ITensor/ITensors.jl) to make use of CUDA-enabled GPUs in a way that's simple enough that any user of ITensors.jl can take advantage of. It sits on top of the wonderful [CuArrays.jl](https://github.com/JuliaGPU/CuArrays.jl) package and uses NVIDIA's CUTENSOR library for high-performance tensor operations. It includes a GPU-enabled implementation of the [DMRG-PEPS algorithm](https://arxiv.org/abs/1908.08833).
 
