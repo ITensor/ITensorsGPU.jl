@@ -14,11 +14,11 @@ using ITensors,
   @test length(str) == length(O) + 2
 
   O[1] = cuITensor(sites[1], prime(sites[1]))
-  @test hasindex(O[1],sites[1])
-  @test hasindex(O[1],prime(sites[1]))
+  @test hasind(O[1],sites[1])
+  @test hasind(O[1],prime(sites[1]))
   P = copy(O)
-  @test hasindex(P[1],sites[1])
-  @test hasindex(P[1],prime(sites[1]))
+  @test hasind(P[1],sites[1])
+  @test hasind(P[1],prime(sites[1]))
 
   @testset "orthogonalize" begin
     phi = randomCuMPS(sites)
@@ -82,18 +82,18 @@ using ITensors,
     end
   end
 
-  @testset "applyMPO" begin
+  @testset "contract" begin
     phi = randomCuMPS(sites)
     K   = randomCuMPO(sites)
     @test maxlinkdim(K) == 1
     psi = randomCuMPS(sites)
-    psi_out = applyMPO(K, psi,maxdim=1)
+    psi_out = contract(K, psi,maxdim=1)
     @test inner(phi,psi_out) ≈ inner(phi,K,psi)
-    @test_throws ArgumentError applyMPO(K, psi, method="fakemethod")
+    @test_throws ArgumentError contract(K, psi, method="fakemethod")
 
     badsites = [Index(2,"Site") for n=1:N+1]
     badpsi = randomCuMPS(badsites)
-    @test_throws DimensionMismatch applyMPO(K,badpsi)
+    @test_throws DimensionMismatch contract(K,badpsi)
 
     # make bigger random MPO...
     for link_dim in 2:5
@@ -119,32 +119,30 @@ using ITensors,
         orthogonalize!(psi, 1; maxdim=link_dim)
         orthogonalize!(K,   1; maxdim=link_dim)
         orthogonalize!(phi, 1; normalize=true, maxdim=link_dim)
-        #psi_out = applyMPO(deepcopy(K), deepcopy(psi); maxdim=10*link_dim, cutoff=0.0)
-        #@test inner(phi, psi_out) ≈ inner(phi, K, psi)
+        psi_out = contract(deepcopy(K), deepcopy(psi); maxdim=10*link_dim, cutoff=0.0)
+        @test inner(phi, psi_out) ≈ inner(phi, K, psi)
     end
   end
   @testset "add" begin
     shsites = siteinds("S=1/2",N)
     K = randomCuMPO(shsites)
     L = randomCuMPO(shsites)
-    M = sum(K, L)
+    M = add(K, L)
     @test length(M) == N
     psi = randomCuMPS(shsites)
-    k_psi = applyMPO(K, psi, maxdim=1)
-    l_psi = applyMPO(L, psi, maxdim=1)
-    @test inner(psi, sum(k_psi, l_psi)) ≈ inner(psi, M, psi) atol=5e-3
+    k_psi = contract(K, psi, maxdim=1)
+    l_psi = contract(L, psi, maxdim=1)
+    @test inner(psi, add(k_psi, l_psi)) ≈ inner(psi, M, psi) atol=5e-3
   end
- 
-  @testset "multMPO" begin
+  @testset "contract(::CuMPO, ::CuMPO)" begin
     psi = randomCuMPS(sites)
-    K   = randomCuMPO(sites)
-    L   = randomCuMPO(sites)
+    K = randomCuMPO(sites)
+    L = randomCuMPO(sites)
     @test maxlinkdim(K) == 1
     @test maxlinkdim(L) == 1
-    KL = multMPO(K, L, maxdim=1)
-    psi_l_out = applyMPO(L, psi, maxdim=1)
-    psi_kl_out = applyMPO(K, psi_l_out, maxdim=1)
-    @test inner(psi, KL, psi) ≈ inner(psi, psi_kl_out) atol=5e-3
+    KL = contract(prime(K), L, maxdim=1)
+    psi_kl_out = contract(prime(K), contract(L, psi, maxdim=1), maxdim=1)
+    @test inner(psi,KL,psi) ≈ inner(psi, psi_kl_out) atol=5e-3
 
     # where both K and L have differently labelled sites
     othersitesk = [Index(2,"Site,aaa") for n=1:N]
@@ -152,17 +150,17 @@ using ITensors,
     K = randomCuMPO(sites)
     L = randomCuMPO(sites)
     for ii in 1:N
-        replaceindex!(K[ii], sites[ii]', othersitesk[ii])
-        replaceindex!(L[ii], sites[ii]', othersitesl[ii])
+    replaceind!(K[ii], sites[ii]', othersitesk[ii])
+    replaceind!(L[ii], sites[ii]', othersitesl[ii])
     end
-    KL = multMPO(K, L, maxdim=1)
+    KL = contract(K, L, maxdim=1)
     psik = randomCuMPS(othersitesk)
     psil = randomCuMPS(othersitesl)
-    psi_kl_out = applyMPO(K, applyMPO(L, psil, maxdim=1), maxdim=1)
+    psi_kl_out = contract(K, contract(L, psil, maxdim=1), maxdim=1)
     @test inner(psik,KL,psil) ≈ inner(psik, psi_kl_out) atol=5e-3
 
     badsites = [Index(2,"Site") for n=1:N+1]
     badL = randomCuMPO(badsites)
-    @test_throws DimensionMismatch multMPO(K,badL)
+    @test_throws DimensionMismatch contract(K,badL)
   end
 end

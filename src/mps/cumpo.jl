@@ -1,7 +1,7 @@
 function cuMPO(O::MPO)
     P = copy(O)
     for site in 1:length(O)
-        P.A_[site] = cuITensor(O.A_[site])
+        P.data[site] = cuITensor(O.data[site])
     end
     return P 
 end

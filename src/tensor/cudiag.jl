@@ -71,6 +71,13 @@ function zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {Tenso
 end
 zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {TensorT2<:DiagTensor, TensorT1<:CuDenseTensor} = zero_contraction_output(T2, T1, indsR)
 
+#=function zero_contraction_output(T1::NonuniformCuDiagTensor{ElT1, N1},
+                                 T2::CombinerTensor,
+                                 indsR::IndsR) where {ElT1, N1, IndsR}
+  dat  = CuArrays.zeros(ElT1, dim(indsR))
+  return Tensor(NonuniformCuDiagTensor(dat), indsR)
+end
+zero_contraction_output(T2::CombinerTensor, T1::NonuniformCuDiagTensor{ElT1, N1}, indsR::IndsR) where {ElT1, N1, IndsR} = zero_contraction_output(T1, T2, indsR)=#
 
 function contraction_output(T1::UniformDiagTensor,T2::DiagTensor{Elt2,<:CuDiag},indsR) where{Elt2}
     zero_contraction_output(T1,T2,indsR)
@@ -135,3 +142,4 @@ function contract!(C::CuDenseTensor,Clabels,
     newB = Tensor(Diag(vec(newBstore)), inds(B))
     contract!(C, Clabels, A, Alabels, newB, Blabels)
 end
+

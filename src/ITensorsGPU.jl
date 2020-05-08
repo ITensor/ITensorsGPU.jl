@@ -13,13 +13,13 @@ import CuArrays: CuArray, CuMatrix, CuVector
 import CuArrays.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
 import ITensors: randn!, compute_contraction_labels,
                  plussers, eigen, similar_type,
-                 scale!, getperm, unioninds, array, matrix, vector,
-                 polar, tensors, truncate!
+                 scale!, unioninds, array, matrix, vector,
+                 polar, tensors, truncate!, leftlim, rightlim
 import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
                          outer!, outer!!, is_trivial_permutation, ind, permutedims!!, Dense, DenseTensor, Combiner,
-                         Tensor
+                         Tensor, data, permute, getperm
 import Base.*
 include("tensor/cudense.jl")
 include("tensor/culinearalgebra.jl")

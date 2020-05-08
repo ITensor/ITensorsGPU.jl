@@ -78,8 +78,8 @@ using ITensors,
 
     @testset "Test SVD of a cuITensor" begin
       U,S,V = svd(A,(j,l))
-      u = commonindex(U,S)
-      v = commonindex(S,V)
+      u = commonind(U,S)
+      v = commonind(S,V)
       @test collect(A)≈collect(U*S*V)
       @test collect(U*dag(prime(U,u)))≈δ(SType,u,u') rtol=1e-14
       @test collect(V*dag(prime(V,v)))≈δ(SType,v,v') rtol=1e-14
@@ -98,7 +98,7 @@ using ITensors,
 
     @testset "Test QR decomposition of a cuITensor" begin
       Q,R = qr(A,(i,l))
-      q = commonindex(Q,R)
+      q = commonind(Q,R)
       @test collect(A)≈collect(Q*R)
       @test collect(Q*dag(prime(Q,q)))≈δ(SType,q,q') atol=1e-14
     end

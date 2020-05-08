@@ -29,8 +29,8 @@ function randomCuMPS(sites)
     randn!(M[i])
     normalize!(M[i])
   end
-  M.llim_ = 1
-  M.rlim_ = length(M)
+  M.llim = 1
+  M.rlim = length(M)
   return M
 end
 

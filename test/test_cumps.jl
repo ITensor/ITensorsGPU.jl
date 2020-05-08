@@ -13,12 +13,12 @@ using ITensors,
   @test str[1] == "MPS"
   @test length(str) == length(psi) + 2
 
-  @test siteindex(psi,2) == sites[2]
-  @test hasindex(psi[3],linkindex(psi,2))
-  @test hasindex(psi[3],linkindex(psi,3))
+  @test siteind(psi,2) == sites[2]
+  @test hasind(psi[3],linkind(psi,2))
+  @test hasind(psi[3],linkind(psi,3))
 
   psi[1] = cuITensor(sites[1])
-  @test hasindex(psi[1],sites[1])
+  @test hasind(psi[1],sites[1])
 
   @testset "cuproductMPS" begin
     @testset "vector of string input" begin
@@ -57,9 +57,9 @@ using ITensors,
 
   @testset "randomMPS" begin
     phi = randomCuMPS(sites)
-    @test hasindex(phi[1],sites[1])
+    @test hasind(phi[1],sites[1])
     @test norm(phi[1])≈1.0
-    @test hasindex(phi[4],sites[4])
+    @test hasind(phi[4],sites[4])
     @test norm(phi[4])≈1.0
   end
 
@@ -80,7 +80,7 @@ using ITensors,
   @testset "inner same MPS" begin
     psi = randomCuMPS(sites)
     psidag = dag(psi)
-    primelinks!(psidag)
+    ITensors.prime_linkinds!(psidag)
     psipsi = psidag[1]*psi[1]
     for j = 2:N
       psipsi *= psidag[j]*psi[j]
@@ -89,10 +89,10 @@ using ITensors,
   end
 
   @testset "add MPS" begin
-    psi    = randomCuMPS(sites)
-    phi    = similar(psi)
-    phi.A_ = deepcopy(psi.A_)
-    xi     = sum(psi, phi)
+    psi      = randomCuMPS(sites)
+    phi      = similar(psi)
+    phi.data = deepcopy(psi.data)
+    xi       = add(psi, phi)
     @test inner(xi, xi) ≈ 4.0 * inner(psi, psi) 
   end
 
@@ -109,37 +109,37 @@ using ITensors,
   @test ITensors.leftlim(psi) == 1
   @test ITensors.rightlim(psi) == 3
   psi = randomCuMPS(sites)
-  psi.rlim_ = N+1 # do this to test qr from rightmost tensor
+  psi.rlim = N+1 # do this to test qr from rightmost tensor
   orthogonalize!(psi, div(N, 2))
   @test ITensors.leftlim(psi) == div(N, 2) - 1
   @test ITensors.rightlim(psi) == div(N, 2) + 1
 
-  @test_throws ErrorException linkindex(MPS(N, fill(cuITensor(), N), 0, N + 1), 1)
+  #@test_throws ErrorException linkind(MPS(N, fill(cuITensor(), N), 0, N + 1), 1)
 
   @testset "replacebond!" begin
   # make sure factorization preserves the bond index tags
     psi = randomCuMPS(sites)
     phi = psi[1]*psi[2]
-    bondindtags = tags(linkindex(psi,1))
+    bondindtags = tags(linkind(psi,1))
     replacebond!(psi,1,phi)
-    @test tags(linkindex(psi,1)) == bondindtags
+    @test tags(linkind(psi,1)) == bondindtags
 
     # check that replaceBond! updates llim_ and rlim_ properly
     orthogonalize!(psi,5)
     phi = psi[5]*psi[6]
-    replacebond!(psi,5,phi, dir="fromleft")
+    replacebond!(psi,5,phi, ortho="left")
     @test ITensors.leftlim(psi)==5
     @test ITensors.rightlim(psi)==7
 
     phi = psi[5]*psi[6]
-    replacebond!(psi,5,phi,dir="fromright")
+    replacebond!(psi,5,phi,ortho="right")
     @test ITensors.leftlim(psi)==4
     @test ITensors.rightlim(psi)==6
 
-    psi.llim_ = 3
-    psi.rlim_ = 7
+    psi.llim = 3
+    psi.rlim = 7
     phi = psi[5]*psi[6]
-    replacebond!(psi,5,phi,dir="fromleft")
+    replacebond!(psi,5,phi,ortho="left")
     @test ITensors.leftlim(psi)==3
     @test ITensors.rightlim(psi)==7
   end
@@ -168,26 +168,26 @@ end
     M = basicRandomCuMPS(N)
     orthogonalize!(M,c)
 
-    @test leftlim(M) == c-1
-    @test rightlim(M) == c+1
+    @test ITensors.leftlim(M) == c-1
+    @test ITensors.rightlim(M) == c+1
 
     # Test for left-orthogonality
     L = M[1]*prime(M[1],"Link")
-    l = linkindex(M,1)
+    l = linkind(M,1)
     @test collect(L) ≈ delta(l,l') rtol=1E-12
     for j=2:c-1
       L = L*M[j]*prime(M[j],"Link")
-      l = linkindex(M,j)
+      l = linkind(M,j)
       @test collect(L) ≈ delta(l,l') rtol=1E-12
     end
 
     # Test for right-orthogonality
     R = M[N]*prime(M[N],"Link")
-    r = linkindex(M,N-1)
+    r = linkind(M,N-1)
     @test collect(R) ≈ delta(r,r') rtol=1E-12
     for j in reverse(c+1:N-1)
       R = R*M[j]*prime(M[j],"Link")
-      r = linkindex(M,j-1)
+      r = linkind(M,j-1)
       @test collect(R) ≈ delta(r,r') rtol=1E-12
     end
 
@@ -198,14 +198,14 @@ end
     M  = basicRandomCuMPS(N;dim=10)
     M0 = copy(M)
     truncate!(M;maxdim=5)
-    @test rightlim(M) == 2
+    @test ITensors.rightlim(M) == 2
     # Test for right-orthogonality
     R = M[N]*prime(M[N],"Link")
-    r = linkindex(M,N-1)
+    r = linkind(M,N-1)
     @test collect(R) ≈ delta(r,r') rtol=1E-12
     for j in reverse(2:N-1)
       R = R*M[j]*prime(M[j],"Link")
-      r = linkindex(M,j-1)
+      r = linkind(M,j-1)
       @test collect(R) ≈ delta(r,r') rtol=1E-12
     end
     @test inner(M0, M) > 0.1

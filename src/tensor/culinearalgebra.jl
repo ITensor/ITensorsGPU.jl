@@ -101,15 +101,15 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
       dV = CuMatrix(dV[:,1:dD])
   end
   # Make the new indices to go onto U and V
-  u = eltype(IndsT)(dD)
-  v = eltype(IndsT)(dD)
-  Uinds = IndsT((ind(T,1),u))
-  Dinds = IndsT((u,v))
+  l = eltype(IndsT)(dD)
+  r = eltype(IndsT)(dD)
+  Vinds = IndsT((dag(ind(T, 2)), dag(r)))
+  Dinds = IndsT((l, dag(r)))
   #dV_ = CuArrays.zeros(ElT, length(dV))
   #copyto!(dV_, vec(dV))
-  U = Tensor(Dense(vec(dV)),Uinds)
+  U = Tensor(Dense(vec(dV)),Vinds)
   D = Tensor(Diag(real.(DM)),Dinds)
-  return U,D,spec
+  return D,U,spec
 end
 
 function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}
