@@ -9,7 +9,7 @@ test:1.4:
     - nvidia
   image: nvidia/cuda:latest
   script:
-    - julia -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git")); Pkg.test(;coverage=true)'
+    - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git")); Pkg.test("ITensorsGPU";coverage=true)'
 
 test:nightly:
   extends:
@@ -19,7 +19,7 @@ test:nightly:
     - nvidia
   image: nvidia/cuda:latest
   script:
-    - julia -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git")); Pkg.test()'
+    - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git")); Pkg.test("ITensorsGPU")'
   allow_failure: true
 
 coverage:
