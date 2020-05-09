@@ -96,10 +96,7 @@ end
 function contract!(C::CuDenseTensor{<:Number, NC},Clabels,
                    A::CuDenseTensor{<:Number, NA},Alabels,
                    B::UniformDiagTensor{<:Number, NB},Blabels) where {NC, NA, NB}
-    Bstore = data(store(B))
-    Astore = data(store(A))
-    Cstore = data(store(C))
-    copyto!(Cstore, Astore.*Bstore)
+    contract!(C, Clabels, B, Blabels, A, Alabels) 
 end
 
 function contract!(C::NonuniformCuDiagTensor{EltC,NC, IndsC},Clabels,

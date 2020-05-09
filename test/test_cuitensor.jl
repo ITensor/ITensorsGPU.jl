@@ -83,18 +83,17 @@ using ITensors,
   #  A  = randomCuITensor(SType,i,i')
   #  @test CuArray(exp(A,i,i')) ≈ exp(CuArray(A))
   #end
-  #=@testset "Test add cuITensors" begin
+  @testset "Test add cuITensors" begin
     dA = randomCuITensor(SType,i,j,k)
     dB = randomCuITensor(SType,k,i,j)
     A = collect(dA)
     B = collect(dB)
     C = collect(dA+dB)
-    @test Array(permute(C,i,j,k))==Array(permute(A,i,j,k))+Array(permute(B,i,j,k))
+    @test CuArray(permute(C,i,j,k))==CuArray(permute(A,i,j,k))+CuArray(permute(B,i,j,k))
     for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
       @test C[i(ii),j(jj),k(kk)]==A[j(jj),i(ii),k(kk)]+B[i(ii),k(kk),j(jj)]
     end
-  end=# 
-  # FIX ME later :(
+  end 
 
   @testset "Test factorizations of a cuITensor" begin
 

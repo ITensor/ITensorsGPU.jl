@@ -47,12 +47,11 @@ using ITensors,
       Ccollect = collect(Ai) * collect(Bi) 
       @test scalar(Ccollect)≈scalar(C)
     end
-    #TODO: need to add back this outer product test
-    #@testset "Test contract cuITensors (Vector*Vectorᵀ -> Matrix)" begin
-    #  C = Ai*Aj
-    #  Ccollect = collect(Ai)*transpose(collect(Aj))
-    #  @test Ccollect≈collect(permute(C,i,j))
-    #end
+    @testset "Test contract cuITensors (Vector*Vectorᵀ -> Matrix)" begin
+      C = Ai*Aj
+      Ccollect = collect(Ai)*collect(Aj)
+      @test Ccollect≈collect(permute(C,i,j))
+    end
     @testset "Test contract cuITensors (Matrix*Scalar -> Matrix)" begin
       Aij = permute(Aij,i,j)
       C = Aij*A

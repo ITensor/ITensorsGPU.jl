@@ -45,5 +45,12 @@ using ITensors,
       C = D*scal
       @test collect(CuArray(C))≈2.0 .* diagm(0=>Dv)
     end
+    @testset "Test contract cuITensors (Matrix*UniformDiag -> Matrix)" begin
+      scal = itensor(ITensors.tensor(NDTensors.Diag(T(2.0)), IndexSet(i, i')))
+      C    = scal*Aij
+      @test collect(C)≈2.0*collect(replaceind(Aij, i, i')) atol=1e-4
+      C    = Aij*scal
+      @test_broken collect(C)≈2.0*collect(replaceind(permute(Aij, j, i), i, i')) atol=1e-4
+    end
   end # End contraction testset
 end
