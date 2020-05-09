@@ -246,14 +246,15 @@ function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
 end
 
 function Base.:+(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
+  opA  = CUTENSOR.CUTENSOR_OP_IDENTITY
   opC  = CUTENSOR.CUTENSOR_OP_IDENTITY
   opAC = CUTENSOR.CUTENSOR_OP_ADD
   ind_dict = Vector{Index}()
-  for (idx, i) in enumerate(inds(A))
+  for (idx, i) in enumerate(Ais)
       push!(ind_dict, i)
   end
-  Adata = data(store(A))
-  Bdata = data(store(B))
+  Adata = data(A)
+  Bdata = data(B)
   reshapeBdata = reshape(Bdata,dims(Bis))
   reshapeAdata = reshape(Adata,dims(Ais))
   ctainds = zeros(Int, length(Ais))
@@ -264,9 +265,11 @@ function Base.:+(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   for (ii, ib) in enumerate(Bis)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
-  C = zeros(Bdata)
+  ctcinds = copy(ctbinds)
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   Cis = Bis
-  C = CUTENSOR.elementwiseBinary!(1, Adata, ctainds, opA, 1, Bdata, Binds, opC, C, Cis, opAC)
+  C = CUTENSOR.elementwiseBinary!(1, reshapeAdata, ctainds, opA, 1, reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
+  copyto!(data(B), vec(C))
   return C
 end
 
