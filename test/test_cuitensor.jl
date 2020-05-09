@@ -49,16 +49,40 @@ using ITensors,
       @test A[ii,jj,kk]==digits(SType,ii,jj,kk)
     end
   end=#
-  @testset "Test scalar(cuITensor)" begin
+  #=@testset "Test scalar(cuITensor)" begin
     x = SType(34)
-    A = cuITensor(x)
+    A = randomCuITensor(a)
     @test x==scalar(A)
+  end=#
+  @testset "Test CuVector(cuITensor)" begin
+      v = CuVector(ones(Float64, dim(a)))
+      A = cuITensor(v, a)
+      @test v==CuVector(A)
+  end
+  @testset "Test CuMatrix(cuITensor)" begin
+      v = CuMatrix(ones(Float64, dim(a), dim(l)))
+      A = cuITensor(vec(v), a, l)
+      @test v==CuMatrix(A, a, l)
+      A = cuITensor(vec(v), a, l)
+      @test v==CuMatrix(A)
+      A = cuITensor(vec(v), a, l)
+      @test v==CuArray(A, a, l)
+      @test v==CuArray(A)
   end
   @testset "Test norm(cuITensor)" begin
     A = randomCuITensor(SType,i,j,k)
     B = dag(A)*A
     @test norm(A)≈sqrt(scalar(B))
   end
+  @testset "Test complex(cuITensor)" begin
+    A  = randomCuITensor(SType,i,j,k)
+    cA = complex(A)
+    @test complex.(CuArray(A)) == CuArray(cA)
+  end
+  #@testset "Test exp(cuITensor)" begin
+  #  A  = randomCuITensor(SType,i,i')
+  #  @test CuArray(exp(A,i,i')) ≈ exp(CuArray(A))
+  #end
   #=@testset "Test add cuITensors" begin
     dA = randomCuITensor(SType,i,j,k)
     dB = randomCuITensor(SType,k,i,j)

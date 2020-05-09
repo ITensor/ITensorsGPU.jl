@@ -127,19 +127,12 @@ function contract!(C::CuDenseTensor,Clabels,
     Astore = data(store(A))
     newAstore = CuArrays.zeros(eltype(A), dims(inds(A))[1], dims(inds(A))[2])
     adi = diagind(newAstore, 0)
-    newAstore[adi] = Astore[:]
-    newA = Tensor(Diag(vec(newAstore)), inds(A))
+    newAstore[adi] .= Astore[:]
+    newA = Tensor(Dense(vec(newAstore)), inds(A))
     contract!(C, Clabels, newA, Alabels, B, Blabels)
 end
 
-function contract!(C::CuDenseTensor,Clabels,
+contract!(C::CuDenseTensor,Clabels,
                    A::CuDenseTensor,Alabels,
-                   B::NonuniformCuDiagTensor,Blabels)
-    Bstore = data(store(B))
-    newBstore = CuArrays.zeros(eltype(B), dims(inds(B))[1], dims(inds(B))[2])
-    bdi = diagind(newBstore, 0)
-    newBstore[bdi] = Bstore[:]
-    newB = Tensor(Diag(vec(newBstore)), inds(B))
-    contract!(C, Clabels, A, Alabels, newB, Blabels)
-end
+                   B::NonuniformCuDiagTensor,Blabels) = contract!(C, Clabels, B, Blabels, A, Alabels)
 

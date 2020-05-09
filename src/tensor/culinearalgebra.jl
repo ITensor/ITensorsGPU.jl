@@ -10,7 +10,6 @@ function Base.:*(T1::Tensor{ElT1,2,StoreT1,IndsT1},
                  T2::Tensor{ElT2,2,StoreT2,IndsT2}) where
                                         {ElT1,StoreT1<:CuDense,IndsT1,
                                         ElT2,StoreT2<:CuDense,IndsT2}
-  println("hi")
   RM    = matrix(T1)*matrix(T2)
   indsR = IndsT1(ind(T1,1),ind(T2,2))
   pT    = promote_type(ElT1,ElT2)

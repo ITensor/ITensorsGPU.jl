@@ -12,7 +12,7 @@ using ITensors
 import CuArrays: CuArray, CuMatrix, CuVector
 import CuArrays.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
 import ITensors: randn!, compute_contraction_labels,
-                 plussers, eigen, similar_type,
+                 plussers, eigen, similar_type, tensor,
                  scale!, unioninds, array, matrix, vector,
                  polar, tensors, truncate!, leftlim, rightlim
 import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
