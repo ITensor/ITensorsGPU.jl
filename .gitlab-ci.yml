@@ -7,6 +7,7 @@ test:1.4:
     - .test
   tags:
     - nvidia
+    - sm_70
   image: nvidia/cuda:latest
   script:
     - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
@@ -19,6 +20,7 @@ test:nightly:
     - .test
   tags:
     - nvidia
+    - sm_70
   image: nvidia/cuda:latest
   script:
     - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
@@ -28,5 +30,5 @@ test:nightly:
 
 coverage:
   extends:
-    - .julia:1.4
+    - .julia:nightly
     - .coverage

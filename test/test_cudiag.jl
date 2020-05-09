@@ -6,7 +6,7 @@ using ITensors,
       CuArrays,
       Test
 
-@testset "cuITensor $T Contractions" for T ∈ (Float64,)#(Float64,ComplexF64)
+@testset "cuITensor $T Contractions" for T ∈ (Float64,ComplexF64)
   mi,mj,mk,ml,ma = 2,3,4,5,6,7
   i = Index(mi,"i")
   j = Index(mj,"j")
@@ -28,9 +28,22 @@ using ITensors,
       Aijkl = cuITensor(randomITensor(T,i,j,k,l))
       Dv = rand(mi)
       D = itensor(ITensors.tensor(NDTensors.Diag(CuVector(Dv)), IndexSet(i, i')))
+      Ev = rand(mi)
+      E = itensor(ITensors.tensor(NDTensors.Diag(CuVector(Ev)), IndexSet(i, i'')))
     @testset "Test contract cuITensors (Matrix*Diag -> Matrix)" begin
       C = Aij*D
-      @test collect(CuArray(C))≈collect(CuMatrix(Aij, j, i)*CuMatrix(diagm(0=>Dv)))
+      @test collect(CuArray(C))≈collect(CuMatrix(Aij, j, i))*diagm(0=>Dv)
+    end
+    @testset "Test contract cuDiagITensors (Diag*Diag -> Diag)" begin
+      C = E*D
+      @test collect(CuArray(C))≈diagm(0=>Ev)*diagm(0=>Dv)
+    end
+    @testset "Test contract cuDiagITensors (UniformDiag*Diag -> Diag)" begin
+      scal = itensor(ITensors.tensor(NDTensors.Diag(2.0), IndexSet(i, i'')))
+      C = scal*D
+      @test collect(CuArray(C))≈2.0 .* diagm(0=>Dv)
+      C = D*scal
+      @test collect(CuArray(C))≈2.0 .* diagm(0=>Dv)
     end
   end # End contraction testset
 end
