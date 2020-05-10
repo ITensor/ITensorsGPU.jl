@@ -10,7 +10,7 @@ function Dense{T, S}(x::T, size::Integer) where {T, S<:CuArray{<:T}}
     Dense{T, S}(arr)
 end
 Base.collect(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
-Base.complex(::Type{CuDense{ElT, CuVector{ElT, Nothing}}}) where {ElT<:Number} = Dense{complex(ElT),CuVector{complex(ElT), Nothing}}
+Base.complex(::Type{Dense{ElT, VT}}) where {ElT, VT<:CuArray} = Dense{complex(ElT),CuVector{complex(ElT), Nothing}}
 
 *(D::Dense{T, AT},x::S) where {T,AT<:CuArray,S<:Number} = Dense(x .* data(D))
 
