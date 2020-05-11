@@ -13,17 +13,13 @@ using ITensors,
   k = Index(mk,"k")
   l = Index(ml,"l")
   a = Index(ma,"a") 
-  #=@testset "Set and get values with IndexVals" begin
-    A = cuITensor(SType,i,j,k)
-    for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
-      A[k(kk),j(jj),i(ii)] = digits(SType,ii,jj,kk)
-    end
-    CA = cuITensor(A)
-    AA = collect(CA)
-    for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
-      @test AA[j(jj),k(kk),i(ii)]==digits(SType,ii,jj,kk)
-    end
-  end=#
+  @testset "Constructor" begin
+      A = cuITensor(one(SType),i,j,k)
+      @test collect(CuArray(A, i, j, k)) == ones(SType, dim(i), dim(j), dim(k))
+      A = randomCuITensor(IndexSet(i,j,k))
+      @test inds(A) == IndexSet(i, j, k)
+      @test ITensorsGPU.store(A) isa ITensorsGPU.CuDense
+  end
   @testset "Test permute(cuITensor,Index...)" begin
     CA = randomCuITensor(SType,i,k,j)
     permCA = permute(CA,k,j,i)

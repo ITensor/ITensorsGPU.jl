@@ -1,7 +1,7 @@
 function cuITensor(::Type{T},inds::IndexSet) where {T<:Number}
     return ITensor(Dense{float(T)}(CuArrays.zeros(float(T),dim(inds))), inds)
 end
-cuITensor(::Type{T},inds::Index...) where {T<:Number} = ITensor(T,IndexSet(inds...))
+cuITensor(::Type{T},inds::Index...) where {T<:Number} = cuITensor(T,IndexSet(inds...))
 
 cuITensor(is::IndexSet)   = cuITensor(Float64,is)
 cuITensor(inds::Index...) = cuITensor(IndexSet(inds...))

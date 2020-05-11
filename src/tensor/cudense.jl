@@ -35,16 +35,6 @@ function Base.permutedims(T::CuDenseTensor{<:Number,N},
   return Tp
 end
 
-function Base.permutedims!(B::CuDenseTensor{<:Number, N},
-                           A::CuDenseTensor{<:Number, N},
-                           perm,
-                           f::Function) where {N} #(r,t)->permute!(r,t)) where {N}
-  Ais = inds(A)
-  Bis = permute(inds(A), perm)
-  Cs  = f(B, A)
-  return Tensor(Dense(vec(Cs)), Bis) 
-end
-
 function permutedims!!(B::Tensor{ElT,N,StoreT,IndsB},
                        A::Tensor{ElT,N,StoreT,IndsA},
                        perm::NTuple{N,Int},
