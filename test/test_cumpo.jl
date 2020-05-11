@@ -20,6 +20,13 @@ using ITensors,
   @test hasind(P[1],sites[1])
   @test hasind(P[1],prime(sites[1]))
 
+  K = randomCuMPO(sites)
+  K_ = cuMPO(length(K), ITensors.data(K))
+  @test all(ITensors.data(K) .== ITensors.data(K_))
+
+  L = randomMPO(sites)
+  K = cuMPO(L)
+  @test all(ITensors.data(collect(K)) .== ITensors.data(L))
   @testset "orthogonalize" begin
     phi = randomCuMPS(sites)
     K = randomCuMPO(sites)
@@ -150,8 +157,8 @@ using ITensors,
     K = randomCuMPO(sites)
     L = randomCuMPO(sites)
     for ii in 1:N
-    replaceind!(K[ii], sites[ii]', othersitesk[ii])
-    replaceind!(L[ii], sites[ii]', othersitesl[ii])
+     replaceind!(K[ii], sites[ii]', othersitesk[ii])
+     replaceind!(L[ii], sites[ii]', othersitesl[ii])
     end
     KL = contract(K, L, maxdim=1)
     psik = randomCuMPS(othersitesk)

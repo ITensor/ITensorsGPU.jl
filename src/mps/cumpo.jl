@@ -39,7 +39,7 @@ end
 
 function Base.collect(M::T) where {T <: Union{MPS, MPO}}
     if typeof(tensor(tensors(M)[1])) <: CuDenseTensor
-        return T(length(M), collect.(tensors(M)), M.llim_, M.rlim_)    
+        return T(length(M), collect.(tensors(M)), M.llim, M.rlim)    
     else
         return M
     end
