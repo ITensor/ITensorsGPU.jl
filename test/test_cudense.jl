@@ -22,6 +22,15 @@ using ITensors,
     hC = collect(dC)
     @test collect(A + B) ≈ hC
   end 
+  @testset "Test permute CuDense" begin
+    A  = [SType(ii*jj) for ii in 1:dim(i), jj in 1:dim(j)]
+    dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(Dense(vec(A)))
+    B  = [SType(0.0) for ii in 1:dim(j), jj in 1:dim(j)]
+    dB = ITensorsGPU.CuDense{SType, CuVector{SType}}(SType(0.0), dim(i)*dim(j))
+    dC = permute!(dB, IndexSet(j, i), dA, IndexSet(i, j))
+    hC = collect(dC)
+    @test vec(transpose(A)) == hC
+  end 
   #=@testset "Test CuDense outer" begin
     A  = CuArray(rand(SType, dim(i)*dim(j)))
     B  = CuArray(rand(SType, dim(k)*dim(l)))

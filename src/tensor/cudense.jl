@@ -1,8 +1,8 @@
 const CuDense{ElT,VecT}                 = Dense{ElT,VecT} where {VecT<:CuVector}
 const CuDenseTensor{ElT,N,StoreT,IndsT} = Tensor{ElT,N,StoreT,IndsT} where {StoreT<:CuDense}
 
-Dense{T, SA}(x::Dense{T, SB}) where {T<:Number, SA<:CuArray, SB<:Array} = Dense{T, S}(CuArray(x))
-Dense{T, SA}(x::Dense{T, SB}) where {T<:Number, SA<:Array, SB<:CuArray} = Dense{T, S}(collect(x.data))
+Dense{T, SA}(x::Dense{T, SB}) where {T<:Number, SA<:CuArray, SB<:Array} = Dense{T, SA}(CuArray(x))
+Dense{T, SA}(x::Dense{T, SB}) where {T<:Number, SA<:Array, SB<:CuArray} = Dense{T, SA}(collect(x.data))
 Dense{T, S}(size::Integer) where {T, S<:CuArray{<:T}} = Dense{T, S}(CuArrays.zeros(T, size))
 function Dense{T, S}(x::T, size::Integer) where {T, S<:CuArray{<:T}}
     arr = CuArray{T}(undef, size)
