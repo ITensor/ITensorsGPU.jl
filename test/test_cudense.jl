@@ -24,12 +24,22 @@ using ITensors,
   end 
   @testset "Test permute CuDense" begin
     A  = [SType(ii*jj) for ii in 1:dim(i), jj in 1:dim(j)]
-    dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(Dense(vec(A)))
+    dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(NDTensors.Dense(vec(A)))
     B  = [SType(0.0) for ii in 1:dim(j), jj in 1:dim(j)]
     dB = ITensorsGPU.CuDense{SType, CuVector{SType}}(SType(0.0), dim(i)*dim(j))
     dC = permute!(dB, IndexSet(j, i), dA, IndexSet(i, j))
     hC = collect(dC)
     @test vec(transpose(A)) == hC
+  end 
+  @testset "Test move CuDense on/off GPU" begin
+    A  = [SType(1.0) for ii in 1:dim(i), jj in 1:dim(j)]
+    dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(NDTensors.Dense(vec(A)))
+    dB = ITensorsGPU.Dense{SType, Vector{SType}}(dA)
+    @test NDTensors.data(dB) == vec(A)
+  end 
+  @testset "Test basic CuDense features" begin
+    @test NDTensors.Dense{SType, CuVector{SType}}(10) isa ITensorsGPU.CuDense{SType}
+    @test complex(NDTensors.Dense{SType, CuVector{SType}}) == NDTensors.Dense{complex(SType), CuVector{complex(SType), Nothing}}
   end 
   #=@testset "Test CuDense outer" begin
     A  = CuArray(rand(SType, dim(i)*dim(j)))
