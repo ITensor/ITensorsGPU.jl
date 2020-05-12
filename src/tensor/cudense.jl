@@ -35,6 +35,12 @@ function Base.permutedims(T::CuDenseTensor{<:Number,N},
   return Tp
 end
 
+function Base.permutedims!(R::CuDenseTensor{<:Number,N},
+                           T::CuDenseTensor{<:Number,N},
+                           perm::NTuple{N,Int}) where {N}
+    return permutedims!!(R, T, perm) 
+end
+
 function permutedims!!(B::Tensor{ElT,N,StoreT,IndsB},
                        A::Tensor{ElT,N,StoreT,IndsA},
                        perm::NTuple{N,Int},
@@ -242,6 +248,63 @@ function Base.:+(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   Cis = Bis
   C = CUTENSOR.elementwiseBinary!(1, reshapeAdata, ctainds, opA, 1, reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
+  copyto!(data(B), vec(C))
+  return C
+end
+
+function Base.:-(B::CuDenseTensor, A::CuDenseTensor)
+  opC  = CUTENSOR.CUTENSOR_OP_IDENTITY
+  opA  = CUTENSOR.CUTENSOR_OP_IDENTITY
+  opAC = CUTENSOR.CUTENSOR_OP_ADD
+  Ais = inds(A)
+  Bis = inds(B)
+  ind_dict = Vector{Index}()
+  for (idx, i) in enumerate(inds(A))
+      push!(ind_dict, i)
+  end
+  Adata = data(store(A))
+  Bdata = data(store(B))
+  reshapeBdata = reshape(Bdata,dims(Bis))
+  reshapeAdata = reshape(Adata,dims(Ais))
+  ctainds = zeros(Int, length(Ais))
+  ctbinds = zeros(Int, length(Bis))
+  for (ii, ia) in enumerate(Ais)
+      ctainds[ii] = findfirst(x->x==ia, ind_dict)
+  end
+  for (ii, ib) in enumerate(Bis)
+      ctbinds[ii] = findfirst(x->x==ib, ind_dict)
+  end
+  ctcinds = copy(ctbinds)
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
+  CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, -one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
+  copyto!(data(store(B)), vec(C))
+  return B
+end
+
+function Base.:-(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
+  opA  = CUTENSOR.CUTENSOR_OP_IDENTITY
+  opC  = CUTENSOR.CUTENSOR_OP_IDENTITY
+  opAC = CUTENSOR.CUTENSOR_OP_ADD
+  ind_dict = Vector{Index}()
+  for (idx, i) in enumerate(Ais)
+      push!(ind_dict, i)
+  end
+  Adata = data(A)
+  Bdata = data(B)
+  reshapeBdata = reshape(Bdata,dims(Bis))
+  reshapeAdata = reshape(Adata,dims(Ais))
+  ctainds = zeros(Int, length(Ais))
+  ctbinds = zeros(Int, length(Bis))
+  for (ii, ia) in enumerate(Ais)
+      ctainds[ii] = findfirst(x->x==ia, ind_dict)
+  end
+  for (ii, ib) in enumerate(Bis)
+      ctbinds[ii] = findfirst(x->x==ib, ind_dict)
+  end
+  ctcinds = copy(ctbinds)
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
+  Cis = Bis
+  C = CUTENSOR.elementwiseBinary!(one(eltpye(Adata)), reshapeAdata, ctainds, opA, -one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(B), vec(C))
   return C
 end

@@ -20,7 +20,7 @@ import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _cont
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
                          outer!, outer!!, is_trivial_permutation, ind, permutedims!!, Dense, DenseTensor, Combiner,
                          Tensor, data, permute, getperm
-import Base.*
+import Base.*, Base.permutedims!
 include("tensor/cudense.jl")
 include("tensor/culinearalgebra.jl")
 include("tensor/cutruncate.jl")
