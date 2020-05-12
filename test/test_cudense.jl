@@ -22,6 +22,15 @@ using ITensors,
     hC = collect(dC)
     @test collect(A + B) ≈ hC
   end 
+  @testset "Test subtract CuDense" begin
+    A  = [SType(1.0) for ii in 1:dim(i), jj in 1:dim(j)]
+    dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(SType(1.0), dim(i)*dim(j))
+    B  = [SType(2.0) for ii in 1:dim(i), jj in 1:dim(j)]
+    dB = ITensorsGPU.CuDense{SType, CuVector{SType}}(SType(2.0), dim(i)*dim(j))
+    dC = -(dA, IndexSet(i, j), dB, IndexSet(i, j))
+    hC = collect(dC)
+    @test A - B ≈ hC
+  end 
   @testset "Test permute CuDense" begin
     A  = [SType(ii*jj) for ii in 1:dim(i), jj in 1:dim(j)]
     dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(NDTensors.Dense(vec(A)))

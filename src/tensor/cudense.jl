@@ -273,7 +273,7 @@ function Base.:-(B::CuDenseTensor, A::CuDenseTensor)
   return B
 end
 
-function Base.:-(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
+function Base.:-(A::CuDense, Ais::IndexSet, B::CuDense, Bis::IndexSet)
   opA  = CUTENSOR.CUTENSOR_OP_IDENTITY
   opC  = CUTENSOR.CUTENSOR_OP_IDENTITY
   opAC = CUTENSOR.CUTENSOR_OP_ADD
@@ -296,7 +296,7 @@ function Base.:-(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   ctcinds = copy(ctbinds)
   C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   Cis = Bis
-  C = CUTENSOR.elementwiseBinary!(one(eltpye(Adata)), reshapeAdata, ctainds, opA, -one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
+  C = CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, -one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(B), vec(C))
   return C
 end
