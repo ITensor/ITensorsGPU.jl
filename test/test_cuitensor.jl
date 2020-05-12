@@ -23,6 +23,7 @@ using ITensors,
       @test collect(ITensor(Aarr, i, j, k)) == collect(cuITensor(Aarr, i, j, k))
       @test cuITensor(SType, i, j, k) isa ITensor{3}
       @test store(cuITensor(SType, i, j, k)) isa ITensorsGPU.CuDense{SType} 
+      @test vec(collect(CuArray(ITensor(Aarr, i,j,k), i, j, k))) == Aarr 
   end
   @testset "Test permute(cuITensor,Index...)" begin
     CA = randomCuITensor(SType,i,k,j)
