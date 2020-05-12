@@ -38,7 +38,7 @@ end
 function Base.permutedims!(R::CuDenseTensor{<:Number,N},
                            T::CuDenseTensor{<:Number,N},
                            perm::NTuple{N,Int}) where {N}
-    return permutedims!!(R, T, perm) 
+    return permutedims!!(R, T, perm)
 end
 
 function permutedims!!(B::Tensor{ElT,N,StoreT,IndsB},
