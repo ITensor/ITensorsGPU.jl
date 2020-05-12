@@ -19,6 +19,8 @@ using ITensors,
       A = randomCuITensor(IndexSet(i,j,k))
       @test inds(A) == IndexSet(i, j, k)
       @test ITensorsGPU.store(A) isa ITensorsGPU.CuDense
+      Aarr = rand(SType, dim(i)*dim(j)*dim(k))
+      @test collect(ITensor(Aarr, IndexSet(i, j, k))) == collect(cuITensor(Aarr, IndexSet(i, j, k))) 
   end
   @testset "Test permute(cuITensor,Index...)" begin
     CA = randomCuITensor(SType,i,k,j)
