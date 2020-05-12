@@ -19,6 +19,10 @@ using ITensors,
 
   psi[1] = cuITensor(sites[1])
   @test hasind(psi[1],sites[1])
+  
+  L = randomMPS(sites)
+  K = cuMPS(L)
+  @test all(ITensors.data(collect(K)) .== ITensors.data(collect(L)))
 
   @testset "cuproductMPS" begin
     @testset "vector of string input" begin

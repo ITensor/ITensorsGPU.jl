@@ -38,8 +38,8 @@ function randomCuMPO(sites, m::Int=1)
 end
 
 function Base.collect(M::T) where {T <: Union{MPS, MPO}}
-    if typeof(tensor(tensors(M)[1])) <: CuDenseTensor
-        return T(length(M), collect.(tensors(M)), M.llim, M.rlim)    
+    if typeof(tensor(ITensors.data(M)[1])) <: CuDenseTensor
+        return T(length(M), collect.(ITensors.data(M)), M.llim, M.rlim)    
     else
         return M
     end

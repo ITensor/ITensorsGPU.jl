@@ -1,7 +1,7 @@
 function cuMPS(psi::MPS)
     phi = copy(psi)
     for site in 1:length(psi)
-        phi.A_[site] = cuITensor(psi.A_[site])
+        phi.data[site] = cuITensor(psi.data[site])
     end
     return phi
 end
