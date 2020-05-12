@@ -67,14 +67,6 @@ function outer!(R::CuDenseTensor,
   return R
 end
 
-# TODO: call outer!!, make this generic
-function outer(T1::CuDenseTensor{ElT1},
-               T2::CuDenseTensor{ElT2}) where {ElT1,ElT2}
-  array_outer = vec(array(T1))*transpose(vec(array(T2)))
-  inds_outer = unioninds(inds(T1),inds(T2))
-  return Tensor(Dense{promote_type(ElT1,ElT2)}(vec(array_outer)),inds_outer)
-end
-
 function contract!!(R::CuDenseTensor{<:Number,NR},
                     labelsR::NTuple{NR},
                     T1::CuDenseTensor{<:Number,N1},

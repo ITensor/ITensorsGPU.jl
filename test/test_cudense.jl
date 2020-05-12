@@ -41,15 +41,6 @@ using ITensors,
     @test NDTensors.Dense{SType, CuVector{SType}}(10) isa ITensorsGPU.CuDense{SType}
     @test complex(NDTensors.Dense{SType, CuVector{SType}}) == NDTensors.Dense{complex(SType), CuVector{complex(SType), Nothing}}
   end 
-  #=@testset "Test CuDense outer" begin
-    A  = CuArray(rand(SType, dim(i)*dim(j)))
-    B  = CuArray(rand(SType, dim(k)*dim(l)))
-    dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(A)
-    dB = ITensorsGPU.CuDense{SType, CuVector{SType}}(B)
-    dC = NDTensors.outer(dA, dB)
-    hC = collect(CuArray(dC))
-    @test A * B' ≈ hC
-  end=# 
   if SType == Float64
       @testset "Test CuDense complex" begin
         A  = CuArrays.rand(SType, dim(i)*dim(j))
