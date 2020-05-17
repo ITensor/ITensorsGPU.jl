@@ -96,6 +96,23 @@ function contract!!(R::CuDenseTensor{<:Number,NR},
   return R
 end
 
+function permutedims!!(B::CuDenseTensor{ElT,0},
+                       A::CuDenseTensor{ElT,0},
+                       perm::NTuple{0,Int},
+                       f=(r,t)->permute!(r,t)) where {ElT<:Number}
+    Cs = f(B, A)
+    return Tensor(Dense(vec(Cs)), IndexSet{0}()) 
+end
+
+function permutedims!!(B::CuDenseTensor{ElT,N},
+                       A::CuDenseTensor{ElT,0},
+                       perm::NTuple{N,Int},
+                       f=(r,t)->permute!(r,t)) where {N, ElT<:Number}
+    Cis = permute(inds(B), perm)
+    Cs = f(B, A)
+    return Tensor(Dense(vec(Cs)), Cis) 
+end
+
 function _contract!(CT::CuDenseTensor{El,NC},
                     AT::CuDenseTensor{El,NA},
                     BT::CuDenseTensor{El,NB},
