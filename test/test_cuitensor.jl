@@ -37,19 +37,6 @@ using ITensors,
       @test A[k(kk),i(ii),j(jj)]==permA[i(ii),j(jj),k(kk)]
     end
   end
-  #=@testset "Set and get values with Ints" begin
-    A = ITensor(SType,i,j,k)
-    A = permute(A,k,i,j)
-    for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
-      A[kk,ii,jj] = digits(SType,ii,jj,kk)
-    end
-    CA = cuITensor(A)
-    CA = permute(CA,i,j,k)
-    A = collect(CA)
-    for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
-      @test A[ii,jj,kk]==digits(SType,ii,jj,kk)
-    end
-  end=#
   #=@testset "Test scalar(cuITensor)" begin
     x = SType(34)
     A = randomCuITensor(a)
