@@ -33,11 +33,15 @@ using ITensors,
     @testset "Test contract cuITensor (Scalar*Scalar -> Scalar)" begin
       C = A*B
       @test scalar(C)≈scalar(A)*scalar(B)
+      C = cuITensor(T(2.0))*cuITensor(T(2.0))
+      @test scalar(C)≈T(4.0)
     end
     @testset "Test contract cuITensor (Scalar*Vector -> Vector)" begin
       C = A*Ai
       @test collect(C)≈scalar(A)*collect(Ai)
       C = cuITensor(T(2.0))*Ai
+      @test collect(C)≈T(2.0)*collect(Ai)
+      C = Ai*cuITensor(T(2.0))
       @test collect(C)≈T(2.0)*collect(Ai)
     end
     @testset "Test contract cuITensor (Vector*Scalar -> Vector)" begin
