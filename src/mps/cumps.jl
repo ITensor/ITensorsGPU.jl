@@ -20,7 +20,7 @@ function cuMPS(sites) # random MPS
       v[ii] = cuITensor(l[ii-1],s,l[ii])
     end
   end
-  return MPS(N,v,0,N+1)
+  return MPS(v,0,N+1)
 end
 
 function randomCuMPS(sites)
@@ -53,7 +53,7 @@ function productCuMPS(::Type{T}, ivals::Vector{<:IndexVal}) where {T<:Number}
     end
     As[n] = cuITensor(A)
   end
-  return MPS(N,As,0,2)
+  return MPS(As,0,2)
 end
 productCuMPS(ivals::Vector{<:IndexVal}) = productCuMPS(Float64, ivals)
 

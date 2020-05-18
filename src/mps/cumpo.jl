@@ -7,7 +7,7 @@ function cuMPO(O::MPO)
 end
 cuMPO() = MPO()
   
-cuMPO(N::Int, A::Vector{ITensor}) = cuMPO(MPO(N, A))
+cuMPO(A::Vector{ITensor}) = cuMPO(MPO(A))
 cuMPO(sites) = cuMPO(MPO(sites))
 function plussers(::Type{T}, left_ind::Index, right_ind::Index, sum_ind::Index) where {T <: CuArray}
     #if dir(left_ind) == dir(right_ind) == Neither
@@ -39,7 +39,7 @@ end
 
 function Base.collect(M::T) where {T <: Union{MPS, MPO}}
     if typeof(tensor(ITensors.data(M)[1])) <: CuDenseTensor
-        return T(length(M), collect.(ITensors.data(M)), M.llim, M.rlim)    
+        return T(collect.(ITensors.data(M)), M.llim, M.rlim)    
     else
         return M
     end
