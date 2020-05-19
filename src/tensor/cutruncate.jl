@@ -32,11 +32,13 @@ function truncate!(P::CuVector{Float64};
       if absoluteCutoff
         #Test if individual prob. weights fall below cutoff
         #rather than using *sum* of discarded weights
-        err_rP = inv.(rP .+ truncerr .- cutoff*scale)
-        cut_ind = CuArrays.CUBLAS.iamax(err_rP) - 1
+        sub_arr = rP .- cutoff
+        err_rP  = sub_arr ./ abs.(sub_arr)
+        flags   = reinterpret(Float64, (signbit.(err_rP) .<< 1 .& 2) .<< 61)
+        cut_ind = CuArrays.CUBLAS.iamax(err_rP .* flags) - 1
         n = min(maxdim, length(P) - cut_ind)
         n = max(n, mindim)
-        truncerr += sum(rP[1:cut_ind])
+        truncerr += sum(rP[cut_ind+1:end])
       else
         scale = 1.0
         @timeit "find scale" begin 
@@ -53,7 +55,7 @@ function truncate!(P::CuVector{Float64};
         flags   = reinterpret(Float64, (signbit.(err_rP) .<< 1 .& 2) .<< 61)
         cut_ind = CuArrays.CUBLAS.iamax(err_rP .* flags) - 1
         if cut_ind > 0
-            truncerr += sum(rP[1:cut_ind])
+            truncerr += sum(rP[cut_ind+1:end])
             n = min(maxdim, length(P) - cut_ind)
             n = max(n, mindim)
             if scale==0.0

@@ -15,7 +15,8 @@ using ITensorsGPU, Test, CuArrays
         "test_cucontract.jl",
         "test_cumpo.jl",
         "test_cumps.jl",
-        "test_cuiterativesolvers.jl"
+        "test_cuiterativesolvers.jl",
+        "test_cutruncate.jl"
     )
       println("Running $filename")
       include(filename)
