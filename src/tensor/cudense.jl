@@ -182,7 +182,9 @@ function _contract!(CT::CuDenseTensor{El,NC},
           best_algo = nothing
           max_algos = Ref{Int32}(C_NULL)
           CuArrays.CUTENSOR.cutensorContractionMaxAlgos(max_algos)
-          algos = collect(Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(max_algos[] - 1))
+          # fix once the other options are documented
+          #algos = collect(Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(max_algos[] - 1))
+          algos = collect(Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(-1))
           for algo in reverse(algos)
               try
                   #this_plan = CuArrays.CUTENSOR.contraction_plan(Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo), pref=CuArrays.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
