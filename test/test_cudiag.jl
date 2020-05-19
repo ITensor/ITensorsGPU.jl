@@ -35,8 +35,9 @@ using ITensors,
       @test collect(CuArray(C))≈collect(CuMatrix(Aij, j, i))*diagm(0=>Dv)
     end
     @testset "Test contract cuDiagITensors (Diag*Diag -> Diag)" begin
-      C = E*D
-      @test collect(CuArray(C))≈diagm(0=>Ev)*diagm(0=>Dv)
+      C  = E*D
+      cC = CuArray(C)
+      @test collect(cC) ≈ diagm(0=>Ev)*diagm(0=>Dv)
     end
     @testset "Test contract cuDiagITensors (UniformDiag*Diag -> Diag)" begin
       scal = itensor(ITensors.tensor(NDTensors.Diag(2.0), IndexSet(i, i'')))
@@ -72,24 +73,30 @@ end
       E = itensor(ITensors.tensor(NDTensors.Diag(CuVector(Ev)), IndexSet(i, i'')))
     @testset "Test contract cuITensors (Matrix*Diag -> Matrix)" begin
       C = Aij*D
-      @test collect(CuArray(C))≈collect(CuMatrix(Aij, j, i))*diagm(0=>Dv)
+      cC = CuArray(C)
+      @test collect(cC)≈collect(CuMatrix(Aij, j, i))*diagm(0=>Dv)
     end
     @testset "Test contract cuDiagITensors (Diag*Diag -> Diag)" begin
       C = E*D
-      @test collect(CuArray(C))≈diagm(0=>Ev)*diagm(0=>Dv)
+      cC = CuArray(C)
+      @test collect(cC)≈diagm(0=>Ev)*diagm(0=>Dv)
     end
     @testset "Test contract cuDiagITensors (UniformDiag*Diag -> Diag)" begin
       scal = itensor(ITensors.tensor(NDTensors.Diag(T2(2.0)), IndexSet(i, i'')))
       C = scal*D
-      @test collect(CuArray(C))≈2.0 .* diagm(0=>Dv)
+      cC = CuArray(C)
+      @test collect(cC)≈2.0 .* diagm(0=>Dv)
       C = D*scal
-      @test collect(CuArray(C))≈2.0 .* diagm(0=>Dv)
+      cC = CuArray(C)
+      @test collect(cC)≈2.0 .* diagm(0=>Dv)
     end
     @testset "Test contract cuITensors (Matrix*UniformDiag -> Matrix)" begin
       scal = itensor(ITensors.tensor(NDTensors.Diag(T2(2.0)), IndexSet(i, i')))
       C    = scal*Aij
+      cC = CuArray(C)
       @test collect(C)≈2.0*collect(replaceind(Aij, i, i')) atol=1e-4
       C    = Aij*scal
+      cC = CuArray(C)
       @test_broken collect(C)≈2.0*collect(replaceind(permute(Aij, j, i), i, i')) atol=1e-4
     end
   end # End contraction testset

@@ -39,11 +39,11 @@ randomCuITensor(::Type{S},inds::Index...) where {S<:Number} = randomCuITensor(S,
 randomCuITensor(inds::IndexSet) = randomCuITensor(Float64,inds)
 randomCuITensor(inds::Index...) = randomCuITensor(Float64,IndexSet(inds...))
 
-CuArray(T::ITensor) = CuArray(tensor(T))
+CuArrays.CuArray(T::ITensor) = CuArray(tensor(T))
 
-CuArray(T::ITensor,ninds::Index...) = storage_convert(CuArray,store(T),inds(T),IndexSet(ninds))
+CuArrays.CuArray(T::ITensor,ninds::Index...) = storage_convert(CuArray,store(T),inds(T),IndexSet(ninds))
 
-CuMatrix(A::ITensor) = CuArray(A)
+CuArrays.CuMatrix(A::ITensor) = CuArray(A)
 
 function CuVector(A::ITensor)
   if ndims(A) != 1

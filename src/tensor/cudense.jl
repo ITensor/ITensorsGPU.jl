@@ -12,6 +12,10 @@ end
 Base.collect(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
 Base.complex(::Type{Dense{ElT, VT}}) where {ElT, VT<:CuArray} = Dense{complex(ElT),CuVector{complex(ElT), Nothing}}
 
+CuArrays.CuArray(x::CuDense{ElT}) where {ElT} = CuVector{ElT}(data(x))
+CuArrays.CuArray{ElT, N}(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(reshape(data(store(x)), dims(inds(x))))
+CuArrays.CuArray(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(x)
+
 *(D::Dense{T, AT},x::S) where {T,AT<:CuArray,S<:Number} = Dense(x .* data(D))
 
 Base.:(==)(::Type{<:CuDense{ElT1,CVec1}}, ::Type{<:CuDense{ElT2,CVec2}}) where {ElT1,ElT2,CVec1,CVec2} = (ElT1 == ElT2)
