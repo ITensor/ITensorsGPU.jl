@@ -13,7 +13,7 @@ CuArrays.allowscalar(false)
         "test_cuitensor.jl",
         "test_cudiag.jl",
         "test_cudense.jl",
-        ="test_cucontract.jl",
+        "test_cucontract.jl",
         "test_cumpo.jl",
         "test_cumps.jl",
         "test_cuiterativesolvers.jl",
