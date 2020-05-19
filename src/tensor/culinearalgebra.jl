@@ -15,7 +15,7 @@ function Base.:*(T1::Tensor{ElT1,2,StoreT1,IndsT1},
   pT    = promote_type(ElT1,ElT2)
   return Tensor(Dense(vec(RM)),indsR)
 end
-
+#= FIX ME
 function LinearAlgebra.exp(T::CuDenseTensor{ElT,2}) where {ElT,IndsT}
   expTM = exp(matrix(T))
   return Tensor(Dense(vec(expTM)),inds(T))
@@ -27,6 +27,7 @@ function expHermitian(T::CuDenseTensor{ElT,2}) where {ElT,IndsT}
   expTM = parent(exp(Hermitian(matrix(T))))
   return Tensor(Dense(vec(expTM)),inds(T))
 end
+=#
 
 # svd of an order-2 tensor
 function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,IndsT}
