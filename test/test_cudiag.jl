@@ -21,14 +21,9 @@ using ITensors,
       Ajk = cuITensor(randomITensor(T,j,k))
       Ajl = cuITensor(randomITensor(T,j,l))
       Akl = cuITensor(randomITensor(T,k,l))
-      Aijk = cuITensor(randomITensor(T,i,j,k))
-      Ajkl = cuITensor(randomITensor(T,j,k,l))
-      Aikl = cuITensor(randomITensor(T,i,k,l))
-      Akla = cuITensor(randomITensor(T,k,l,a))
-      Aijkl = cuITensor(randomITensor(T,i,j,k,l))
-      Dv = rand(mi)
+      Dv = rand(T, mi)
       D = itensor(ITensors.tensor(NDTensors.Diag(CuVector(Dv)), IndexSet(i, i')))
-      Ev = rand(mi)
+      Ev = rand(T, mi)
       E = itensor(ITensors.tensor(NDTensors.Diag(CuVector(Ev)), IndexSet(i, i'')))
     @testset "Test contract cuITensors (Matrix*Diag -> Matrix)" begin
       C = Aij*D

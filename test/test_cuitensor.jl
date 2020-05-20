@@ -6,7 +6,7 @@ using ITensors,
       Test
 
       # gpu tests!
-@testset "cuITensor, Dense{$SType} storage" for SType ∈ (Float64,)#,ComplexF64)
+@testset "cuITensor, Dense{$SType} storage" for SType ∈ (Float64, ComplexF64)
   mi,mj,mk,ml,ma = 2,3,4,5,6,7
   i = Index(mi,"i")
   j = Index(mj,"j")
@@ -26,9 +26,9 @@ using ITensors,
       @test vec(collect(CuArray(ITensor(Aarr, i,j,k), i, j, k))) == Aarr 
   end
   @testset "Test permute(cuITensor,Index...)" begin
-    CA = randomCuITensor(SType,i,k,j)
+    CA     = randomCuITensor(SType,i,k,j)
     permCA = permute(CA,k,j,i)
-    permA = collect(permCA)
+    permA  = collect(permCA)
     @test k==inds(permA)[1]
     @test j==inds(permA)[2]
     @test i==inds(permA)[3]
@@ -43,12 +43,12 @@ using ITensors,
     @test x==scalar(A)
   end=#
   @testset "Test CuVector(cuITensor)" begin
-      v = CuVector(ones(Float64, dim(a)))
+      v = CuVector(ones(SType, dim(a)))
       A = cuITensor(v, a)
       @test v==CuVector(A)
   end
   @testset "Test CuMatrix(cuITensor)" begin
-      v = CuMatrix(ones(Float64, dim(a), dim(l)))
+      v = CuMatrix(ones(SType, dim(a), dim(l)))
       A = cuITensor(vec(v), a, l)
       @test v==CuMatrix(A, a, l)
       A = cuITensor(vec(v), a, l)
@@ -60,7 +60,7 @@ using ITensors,
   @testset "Test norm(cuITensor)" begin
     A = randomCuITensor(SType,i,j,k)
     B = dag(A)*A
-    @test norm(A)≈sqrt(scalar(B))
+    @test norm(A)≈sqrt(real(scalar(B)))
   end
   @testset "Test complex(cuITensor)" begin
     A  = randomCuITensor(SType,i,j,k)
@@ -91,7 +91,7 @@ using ITensors,
       U,S,V = svd(A,(j,l))
       u = commonind(U,S)
       v = commonind(S,V)
-      @test collect(A)≈collect(U*S*V)
+      @test collect(A)≈collect(U*S*dag(V))
       @test collect(U*dag(prime(U,u)))≈δ(SType,u,u') rtol=1e-14
       @test collect(V*dag(prime(V,v)))≈δ(SType,v,v') rtol=1e-14
     end

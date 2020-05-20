@@ -30,10 +30,17 @@ function Base.collect(A::ITensor)
     return A
 end
 
-function randomCuITensor(::Type{S},inds::IndexSet) where {S<:Number}
+function randomCuITensor(::Type{S},inds::IndexSet) where {S<:Real}
   T = cuITensor(S,inds)
   randn!(T)
   return T
+end
+function randomCuITensor(::Type{S},inds::IndexSet) where {S<:Complex}
+  Tr = cuITensor(real(S),inds)
+  randn!(Tr)
+  Ti = cuITensor(real(S),inds)
+  randn!(Ti)
+  return complex(Tr) + im.*complex(Ti)
 end
 randomCuITensor(::Type{S},inds::Index...) where {S<:Number} = randomCuITensor(S,IndexSet(inds...))
 randomCuITensor(inds::IndexSet) = randomCuITensor(Float64,inds)
