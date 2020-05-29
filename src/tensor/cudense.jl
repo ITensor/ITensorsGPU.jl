@@ -370,3 +370,4 @@ function Base.permute!(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
   return vec(reshapeBdata) 
 end
 
+Base.:/(A::CuDenseTensor, x::Number) = A * inv(x)

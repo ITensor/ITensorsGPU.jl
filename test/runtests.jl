@@ -10,6 +10,7 @@ CuArrays.allowscalar(false)
       run(pipeline(setenv(cmd, "CUTENSOR_AUTOTUNE" => 1), stdout = stdout, stderr = stderr))
     end
     @testset "$filename" for filename in (
+        "dmrg.jl",
         "test_cuitensor.jl",
         "test_cudiag.jl",
         "test_cudense.jl",
