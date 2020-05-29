@@ -2,7 +2,7 @@ using ITensors,
       ITensorsGPU,
       LinearAlgebra, # For tr()
       Combinatorics, # For permutations()
-      CuArrays,
+      CUDA,
       Test
 
       # gpu tests!

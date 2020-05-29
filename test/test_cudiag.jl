@@ -3,7 +3,7 @@ using ITensors,
       ITensorsGPU,
       LinearAlgebra, # For tr()
       Combinatorics, # For permutations()
-      CuArrays,
+      CUDA,
       Test
 
 @testset "cuITensor $T Contractions" for T ∈ (Float64,ComplexF64)

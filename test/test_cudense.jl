@@ -2,7 +2,7 @@ using ITensors,
       ITensorsGPU,
       LinearAlgebra, # For tr()
       Combinatorics, # For permutations()
-      CuArrays,
+      CUDA,
       Test
 
       # gpu tests!
@@ -52,7 +52,7 @@ using ITensors,
   end
   if SType == Float64
       @testset "Test CuDense complex" begin
-        A  = CuArrays.rand(SType, dim(i)*dim(j))
+        A  = CUDA.rand(SType, dim(i)*dim(j))
         dA = ITensorsGPU.CuDense{SType, CuVector{SType}}(A)
         dC = complex(dA)
         @test typeof(dC) !== typeof(dA)

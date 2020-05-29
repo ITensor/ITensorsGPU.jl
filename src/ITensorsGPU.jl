@@ -1,16 +1,16 @@
 module ITensorsGPU
 
-using CuArrays
-using CuArrays.CUTENSOR
-using CuArrays.CUBLAS
-using CuArrays.CUSOLVER
+using CUDA 
+using CUDA.CUTENSOR
+using CUDA.CUBLAS
+using CUDA.CUSOLVER
 using LinearAlgebra
 using Random
 using TimerOutputs
 using StaticArrays
 using ITensors
-import CuArrays: CuArray, CuMatrix, CuVector
-import CuArrays.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
+import CUDA: CuArray, CuMatrix, CuVector
+import CUDA.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
 import ITensors: randn!, compute_contraction_labels,
                  plussers, eigen, similar_type, tensor,
                  scale!, unioninds, array, matrix, vector,
