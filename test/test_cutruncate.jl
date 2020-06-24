@@ -1,12 +1,12 @@
 using ITensors,
       ITensorsGPU,
       LinearAlgebra, # For tr()
-      CUDA,
+      CuArrays,
       Test
 
       # gpu tests!
 @testset "cutrunctate" begin
-    @test ITensorsGPU.truncate!(CUDA.zeros(Float64, 10)) == (0., 0., CUDA.zeros(Float64, 1))
+    @test ITensorsGPU.truncate!(CuArrays.zeros(Float64, 10)) == (0., 0., CuArrays.zeros(Float64, 1))
     trunc = ITensorsGPU.truncate!(CuArray([1.0, 0.5, 0.1, 0.05]); absoluteCutoff=true, cutoff=0.2)
     @test trunc[1] ≈ 0.15
     @test trunc[2] ≈ 0.3

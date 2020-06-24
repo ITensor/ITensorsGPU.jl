@@ -1,16 +1,34 @@
 module ITensorsGPU
 
-using CUDA 
-using CUDA.CUTENSOR
-using CUDA.CUBLAS
-using CUDA.CUSOLVER
+using CuArrays, CUDAdrv
+using CuArrays.CUTENSOR
+using CuArrays.CUBLAS
+using CuArrays.CUSOLVER
 using LinearAlgebra
 using Random
 using TimerOutputs
 using StaticArrays
 using ITensors
-import CUDA: CuArray, CuMatrix, CuVector
-import CUDA.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
+using Strided
+import CuArrays: CuArray, CuMatrix, CuVector
+import CuArrays.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
+
+using CUDAdrv
+import CUDAdrv.Mem: pin
+#=
+const devs = Ref{Vector{CUDAdrv.CuDevice}}()
+const dev_rows = Ref{Int}(0)
+const dev_cols = Ref{Int}(0)
+function __init__()
+  voltas    = filter(dev->occursin("V100", CUDAdrv.name(dev)), collect(CUDAdrv.devices()))
+  pascals    = filter(dev->occursin("P100", CUDAdrv.name(dev)), collect(CUDAdrv.devices()))
+  devs[] = voltas[1:1]
+  #devs[] = pascals[1:2]
+  CUBLASMG.cublasMgDeviceSelect(CUBLASMG.mg_handle(), length(devs[]), devs[])
+  dev_rows[] = 1
+  dev_cols[] = 1
+end
+=#
 import ITensors: randn!, compute_contraction_labels,
                  plussers, eigen, similar_type, tensor,
                  scale!, unioninds, array, matrix, vector,
@@ -19,9 +37,10 @@ import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _cont
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
                          outer!, outer!!, is_trivial_permutation, ind, permutedims!!, Dense, DenseTensor, Combiner,
-                         Tensor, data, permute, getperm
+                         Tensor, data, permute, getperm, compute_contraction_properties!, Atrans, Btrans, Ctrans
 import Base.*, Base.permutedims!
 include("tensor/cudense.jl")
+include("tensor/dense.jl")
 include("tensor/culinearalgebra.jl")
 include("tensor/cutruncate.jl")
 include("tensor/cucombiner.jl")

@@ -3,7 +3,7 @@ const CuDenseTensor{ElT,N,StoreT,IndsT} = Tensor{ElT,N,StoreT,IndsT} where {Stor
 
 Dense{T, SA}(x::Dense{T, SB}) where {T<:Number, SA<:CuArray, SB<:Array} = Dense{T, SA}(CuArray(x))
 Dense{T, SA}(x::Dense{T, SB}) where {T<:Number, SA<:Array, SB<:CuArray} = Dense{T, SA}(collect(x.data))
-Dense{T, S}(size::Integer) where {T, S<:CuArray{<:T}} = Dense{T, S}(CUDA.zeros(T, size))
+Dense{T, S}(size::Integer) where {T, S<:CuArray{<:T}} = Dense{T, S}(CuArrays.zeros(T, size))
 function Dense{T, S}(x::T, size::Integer) where {T, S<:CuArray{<:T}}
     arr = CuArray{T}(undef, size)
     fill!(arr, x)
@@ -12,9 +12,9 @@ end
 Base.collect(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
 Base.complex(::Type{Dense{ElT, VT}}) where {ElT, VT<:CuArray} = Dense{complex(ElT),CuVector{complex(ElT), Nothing}}
 
-CUDA.CuArray(x::CuDense{ElT}) where {ElT} = CuVector{ElT}(data(x))
-CUDA.CuArray{ElT, N}(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(reshape(data(store(x)), dims(inds(x))))
-CUDA.CuArray(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(x)
+CuArray(x::CuDense{ElT}) where {ElT} = CuVector{ElT}(data(x))
+CuArray{ElT, N}(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(reshape(data(store(x)), dims(inds(x))))
+CuArray(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(x)
 
 *(D::Dense{T, AT},x::S) where {T,AT<:CuArray,S<:Number} = Dense(x .* data(D))
 
@@ -160,7 +160,7 @@ function _contract!(CT::CuDenseTensor{El,NC},
   for (ii, ic) in enumerate(Cinds)
       ctcinds[ii] = findfirst(x->x==ic, ind_dict)
   end
-  id_op    = CUDA.CUTENSOR.CUTENSOR_OP_IDENTITY
+  id_op    = CuArrays.CUTENSOR.CUTENSOR_OP_IDENTITY
   dict_key = ""
   for cc in zip(ctcinds, Cdims)
       dict_key *= string(cc[1]) * "," * string(cc[2]) * ","
@@ -176,7 +176,7 @@ function _contract!(CT::CuDenseTensor{El,NC},
           dict_val = ContractionPlans[dict_key]
           algo  = dict_val
           #plan  = dict_val[2]
-          Cdata = CUDA.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=algo)
+          Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=algo)
       else
           # loop through all algos
           # pick the fastest one
@@ -185,18 +185,17 @@ function _contract!(CT::CuDenseTensor{El,NC},
           best_plan = nothing
           best_algo = nothing
           max_algos = Ref{Int32}(C_NULL)
-          CUDA.CUTENSOR.cutensorContractionMaxAlgos(max_algos)
+          CuArrays.CUTENSOR.cutensorContractionMaxAlgos(max_algos)
           # fix once the other options are documented
           #algos = collect(Cint(CUDA.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(max_algos[] - 1))
-          algos = collect(Cint(CUDA.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(-1))
+          algos = collect(Cint(CuArrays.CUTENSOR.CUTENSOR_ALGO_GETT):Cint(-1))
           for algo in reverse(algos)
               try
-                  #this_plan = CUDA.CUTENSOR.contraction_plan(Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CUDA.CUTENSOR.cutensorAlgo_t(algo), pref=CUDA.CUTENSOR.CUTENSOR_WORKSPACE_MAX)
-                  Cdata, this_time, bytes, gctime, memallocs = @timed CUDA.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CUDA.CUTENSOR.cutensorAlgo_t(algo))
+                  Cdata, this_time, bytes, gctime, memallocs = @timed CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op; algo=CuArrays.CUTENSOR.cutensorAlgo_t(algo))
                   if this_time < best_time
                       best_time = this_time
                       #best_plan = this_plan
-                      best_algo = CUDA.CUTENSOR.cutensorAlgo_t(algo)
+                      best_algo = CuArrays.CUTENSOR.cutensorAlgo_t(algo)
                   end
               catch err
                   @warn "Algorithm $algo not supported"
@@ -205,7 +204,7 @@ function _contract!(CT::CuDenseTensor{El,NC},
           ContractionPlans[dict_key] = best_algo
       end
   else
-      Cdata = CUDA.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op)
+      Cdata = CuArrays.CUTENSOR.contraction!(α, Adata, Vector{Char}(ctainds), id_op, Bdata, Vector{Char}(ctbinds), id_op, β, Cdata, Vector{Char}(ctcinds), id_op, id_op)
   end
   return parent(Cdata)
 end
@@ -233,7 +232,7 @@ function Base.:+(B::CuDenseTensor, A::CuDenseTensor)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   ctcinds = copy(ctbinds)
-  C = CUDA.zeros(eltype(Bdata), dims(Bis))
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(store(B)), vec(C))
   return B
@@ -260,7 +259,7 @@ function Base.:+(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   ctcinds = copy(ctbinds)
-  C = CUDA.zeros(eltype(Bdata), dims(Bis))
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   Cis = Bis
   C = CUTENSOR.elementwiseBinary!(1, reshapeAdata, ctainds, opA, 1, reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(B), vec(C))
@@ -290,7 +289,7 @@ function Base.:-(B::CuDenseTensor, A::CuDenseTensor)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   ctcinds = copy(ctbinds)
-  C = CUDA.zeros(eltype(Bdata), dims(Bis))
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, -one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(store(B)), vec(C))
   return B
@@ -317,7 +316,7 @@ function Base.:-(A::CuDense, Ais::IndexSet, B::CuDense, Bis::IndexSet)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   ctcinds = copy(ctbinds)
-  C = CUDA.zeros(eltype(Bdata), dims(Bis))
+  C = CuArrays.zeros(eltype(Bdata), dims(Bis))
   Cis = Bis
   C = CUTENSOR.elementwiseBinary!(one(eltype(Adata)), reshapeAdata, ctainds, opA, -one(eltype(Bdata)), reshapeBdata, ctbinds, opC, C, ctcinds, opAC)
   copyto!(data(B), vec(C))
@@ -344,7 +343,7 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   
-  CUDA.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
+  CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
   return vec(reshapeBdata) 
 end
 
@@ -366,7 +365,7 @@ function Base.permute!(B::CuDense, Bis::IndexSet, A::CuDense, Ais::IndexSet)
       ctbinds[ii] = findfirst(x->x==ib, ind_dict)
   end
   
-  CUDA.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
+  CuArrays.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
   return vec(reshapeBdata) 
 end
 

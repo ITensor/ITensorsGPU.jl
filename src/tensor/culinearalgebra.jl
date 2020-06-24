@@ -63,11 +63,9 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   Sinds = IndsT((u,v))
   Vinds = IndsT((ind(T,2),v))
   U = Tensor(Dense(vec(MU)),Uinds)
-  Sdata      = CUDA.zeros(ElT, dS * dS)
+  Sdata      = CuArrays.zeros(ElT, dS * dS)
   dsi        = diagind(reshape(Sdata, dS, dS), 0)
   Sdata[dsi] = MS
-  #MV_ = CUDA.zeros(ElT, length(MV))
-  #copyto!(MV_, vec(MV))
   S = Tensor(Dense(Sdata),Sinds)
   V = Tensor(Dense(vec(MV)),Vinds)
   return U,S,V,spec
@@ -97,7 +95,6 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
   dD = length(DM)
   dV = reverse(UM, dims=2)
   if dD < size(dV,2)
-      #UM = CuMatrix(UM[:,reverse((size(UM, 2)-dD+1):end)])
       dV = CuMatrix(dV[:,1:dD])
   end
   # Make the new indices to go onto U and V
@@ -105,8 +102,6 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
   r = eltype(IndsT)(dD)
   Vinds = IndsT((dag(ind(T, 2)), dag(r)))
   Dinds = IndsT((l, dag(r)))
-  #dV_ = CUDA.zeros(ElT, length(dV))
-  #copyto!(dV_, vec(dV))
   U = Tensor(Dense(vec(dV)),Vinds)
   D = Tensor(Diag(real.(DM)),Dinds)
   return D,U,spec
@@ -120,10 +115,6 @@ function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}
   Qinds = IndsT((ind(T,1),q))
   Rinds = IndsT((q,ind(T,2)))
   QM = CuMatrix(QM)
-  #Q_ = CUDA.zeros(ElT, length(QM))
-  #R_ = CUDA.zeros(ElT, length(RM))
-  #copyto!(Q_, vec(QM))
-  #copyto!(R_, vec(RM))
   Q = Tensor(Dense(vec(QM)),Qinds)
   R = Tensor(Dense(vec(RM)),Rinds)
   return Q,R

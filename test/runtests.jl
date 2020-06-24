@@ -1,6 +1,6 @@
-using ITensorsGPU, Test, CUDA
+using ITensorsGPU, Test, CuArrays
 
-CUDA.allowscalar(false)
+CuArrays.allowscalar(false)
 @testset "ITensorsGPU.jl" begin
     @testset "$filename" for filename in (
         "test_cucontract.jl",
