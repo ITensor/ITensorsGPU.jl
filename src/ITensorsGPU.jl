@@ -1,20 +1,19 @@
 module ITensorsGPU
 
-using CuArrays, CUDAdrv
-using CuArrays.CUTENSOR
-using CuArrays.CUBLAS
-using CuArrays.CUSOLVER
+using CUDA
+using CUDA.CUTENSOR
+using CUDA.CUBLAS
+using CUDA.CUSOLVER
 using LinearAlgebra
-using Random
+using Random, Strided
 using TimerOutputs
 using StaticArrays
 using ITensors
 using Strided
-import CuArrays: CuArray, CuMatrix, CuVector
-import CuArrays.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
+import CUDA: CuArray, CuMatrix, CuVector
+import CUDA.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
 
-using CUDAdrv
-import CUDAdrv.Mem: pin
+import CUDA.Mem: pin
 #=
 const devs = Ref{Vector{CUDAdrv.CuDevice}}()
 const dev_rows = Ref{Int}(0)

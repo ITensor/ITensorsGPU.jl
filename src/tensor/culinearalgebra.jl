@@ -63,7 +63,7 @@ function LinearAlgebra.svd(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,
   Sinds = IndsT((u,v))
   Vinds = IndsT((ind(T,2),v))
   U = Tensor(Dense(vec(MU)),Uinds)
-  Sdata      = CuArrays.zeros(ElT, dS * dS)
+  Sdata      = CUDA.zeros(ElT, dS * dS)
   dsi        = diagind(reshape(Sdata, dS, dS), 0)
   Sdata[dsi] = MS
   S = Tensor(Dense(Sdata),Sinds)

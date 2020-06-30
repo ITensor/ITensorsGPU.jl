@@ -1,5 +1,5 @@
 function cuITensor(::Type{T},inds::IndexSet) where {T<:Number}
-    return ITensor(Dense{float(T)}(CuArrays.zeros(float(T),dim(inds))), inds)
+    return ITensor(Dense{float(T)}(CUDA.zeros(float(T),dim(inds))), inds)
 end
 cuITensor(::Type{T},inds::Index...) where {T<:Number} = cuITensor(T,IndexSet(inds...))
 
@@ -50,7 +50,7 @@ CuArray(T::ITensor) = CuArray(tensor(T))
 
 CuArray(T::ITensor,ninds::Index...) = storage_convert(CuArray,store(T),inds(T),IndexSet(ninds))
 
-CuArrays.CuMatrix(A::ITensor) = CuArray(A)
+CUDA.CuMatrix(A::ITensor) = CuArray(A)
 
 function CuVector(A::ITensor)
   if ndims(A) != 1

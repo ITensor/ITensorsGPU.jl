@@ -6,7 +6,7 @@ const NonuniformCuDiagTensor{ElT,N,StoreT,IndsT} = Tensor{ElT,N,StoreT,IndsT} wh
 CuArray(D::NonuniformCuDiagTensor) = CuArray(dense(D))
 
 function NDTensors.dense(T::NonuniformCuDiagTensor{ElT}) where {ElT}
-  R_data = CuArrays.zeros(ElT, dim(inds(T)))
+  R_data = CUDA.zeros(ElT, dim(inds(T)))
   diag_inds = diagind(reshape(R_data, dims(inds(T))), 0)
   R_data[diag_inds] .= data(store(T))
   return Tensor(Dense(R_data), inds(T))
@@ -72,27 +72,27 @@ function zero_contraction_output(T1::UniformDiagTensor{ElT1, N1},
                                  T2::CuDenseTensor{ElT2,N2},
                                  indsR::IndsR) where {ElT1, N1, ElT2, N2, IndsR}
   ElT3 = promote_type(ElT1, ElT2)
-  dat  = CuArrays.zeros(ElT3, dim(indsR))
+  dat  = CUDA.zeros(ElT3, dim(indsR))
   return Tensor(Dense(dat), indsR)
 end
 zero_contraction_output(T2::CuDenseTensor{ElT2,N2}, T1::UniformDiagTensor{ElT1, N1}, indsR::IndsR) where {ElT1, N1, ElT2, N2, IndsR} = zero_contraction_output(T1, T2, indsR)
 
 function zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {TensorT1<:NonuniformDiagTensor, TensorT2<:NonuniformCuDiagTensor}
   ElT3 = promote_type(eltype(TensorT1), eltype(TensorT2))
-  dat  = CuArrays.zeros(ElT3, length(data(store(T2))))
+  dat  = CUDA.zeros(ElT3, length(data(store(T2))))
   return Tensor(Diag(dat), indsR)
 end
 
 function zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {TensorT1<:UniformDiagTensor, TensorT2<:NonuniformCuDiagTensor}
   ElT3 = promote_type(eltype(TensorT1), eltype(TensorT2))
-  dat  = CuArrays.zeros(ElT3, length(data(store(T2))))
+  dat  = CUDA.zeros(ElT3, length(data(store(T2))))
   return Tensor(Diag(dat), indsR)
 end
 zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {TensorT2<:UniformDiagTensor, TensorT1<:NonuniformCuDiagTensor} = zero_contraction_output(T2, T1, indsR)
 
 function zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {TensorT1<:DiagTensor, TensorT2<:CuDenseTensor}
   ElT3 = promote_type(eltype(TensorT1), eltype(TensorT2))
-  dat  = CuArrays.zeros(ElT3, length(data(store(T2))))
+  dat  = CUDA.zeros(ElT3, length(data(store(T2))))
   return Tensor(Dense(dat), indsR)
 end
 zero_contraction_output(T1::TensorT1, T2::TensorT2, indsR) where {TensorT2<:DiagTensor, TensorT1<:CuDenseTensor} = zero_contraction_output(T2, T1, indsR)
@@ -149,7 +149,7 @@ function contract!(C::CuDenseTensor,Clabels,
                    A::NonuniformCuDiagTensor,Alabels,
                    B::CuDenseTensor,Blabels)
     Astore = data(store(A))
-    newAstore = CuArrays.zeros(eltype(A), dims(inds(A))[1], dims(inds(A))[2])
+    newAstore = CUDA.zeros(eltype(A), dims(inds(A))[1], dims(inds(A))[2])
     adi = diagind(newAstore, 0)
     newAstore[adi] .= Astore[:]
     newA = Tensor(Dense(vec(newAstore)), inds(A))

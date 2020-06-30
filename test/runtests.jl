@@ -1,12 +1,12 @@
-using ITensorsGPU, Test, CuArrays
+using ITensorsGPU, Test, CUDA
 
-CuArrays.allowscalar(false)
+CUDA.allowscalar(false)
 @testset "ITensorsGPU.jl" begin
     @testset "$filename" for filename in (
         "test_cucontract.jl",
     )
       println("Running $filename with autotune")
-      cmd = `$(Base.julia_cmd()) --depwarn=error --startup-file=no -e 'using Pkg; Pkg.activate(".."); Pkg.instantiate(); include("test_cucontract.jl")'`
+      cmd = `$(Base.julia_cmd()) -e 'using Pkg; Pkg.activate(".."); Pkg.instantiate(); include("test_cucontract.jl")'`
       run(pipeline(setenv(cmd, "CUTENSOR_AUTOTUNE" => 1), stdout = stdout, stderr = stderr))
     end
     @testset "$filename" for filename in (
