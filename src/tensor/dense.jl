@@ -29,9 +29,9 @@ function contract!!(R::DenseTensor{<:Number,NR},
       R = permutedims!!(R, copy(R), perm)
     end
   else
-    if dim(T1) > 2^13 && dim(T2) > 2^13 
-        R = _big_contract!!(R,labelsR,T1,labelsT1,T2,labelsT2, α, β)
-    else
+    #if dim(T1) > 2^13 && dim(T2) > 2^13 
+    #    R = _big_contract!!(R,labelsR,T1,labelsT1,T2,labelsT2, α, β)
+    #else
         if α ≠ 1 || β ≠ 0
           R = _contract!!(R, labelsR,
                           T1, labelsT1,
@@ -42,7 +42,7 @@ function contract!!(R::DenseTensor{<:Number,NR},
                           T1, labelsT1,
                           T2, labelsT2)
         end
-    end
+    #end
   end
   return R
 end

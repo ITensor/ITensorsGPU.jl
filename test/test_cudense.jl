@@ -48,7 +48,7 @@ using ITensors,
   end
   @testset "Test basic CuDense features" begin
     @test NDTensors.Dense{SType, CuVector{SType}}(10) isa ITensorsGPU.CuDense{SType}
-    @test complex(NDTensors.Dense{SType, CuVector{SType}}) == NDTensors.Dense{complex(SType), CuVector{complex(SType), Nothing}}
+    @test complex(NDTensors.Dense{SType, CuVector{SType}}) == NDTensors.Dense{complex(SType), CuVector{complex(SType)}}
   end
   if SType == Float64
       @testset "Test CuDense complex" begin
