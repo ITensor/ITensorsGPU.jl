@@ -13,7 +13,7 @@ test:1.4:
     - julia --project -e 'using Pkg; Pkg.develop(["CUDA", "GPUArrays", "GPUCompiler"]);'
     - julia --project -e 'using Pkg; Pkg.test("ITensorsGPU"; coverage=true)'
   variables:
-    JULIA_CUDA_VERSION: '10.2'
+    JULIA_CUDA_VERSION: '10.1'
     JULIA_CUDA_USE_BINARYBUILDER: 'true'
 
 test:1.5:
@@ -28,7 +28,7 @@ test:1.5:
     - julia --project -e 'using Pkg; Pkg.develop(["CUDA", "GPUArrays", "GPUCompiler"]);'
     - julia --project -e 'using Pkg; Pkg.test("ITensorsGPU"; coverage=true)'
   variables:
-    JULIA_CUDA_VERSION: '10.2'
+    JULIA_CUDA_VERSION: '10.1'
     JULIA_CUDA_USE_BINARYBUILDER: 'true'
 
 test:nightly:
@@ -44,7 +44,7 @@ test:nightly:
     - julia --project -e 'using Pkg; Pkg.test("ITensorsGPU")'
   allow_failure: true
   variables:
-    JULIA_CUDA_VERSION: '10.2'
+    JULIA_CUDA_VERSION: '10.1'
     JULIA_CUDA_USE_BINARYBUILDER: 'true'
 
 coverage:
