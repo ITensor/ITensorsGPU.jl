@@ -7,6 +7,7 @@ test:1.4:
     - .test
   tags:
     - nvidia
+    - cuda_11.0
     - sm_70
   script:
     - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
@@ -22,6 +23,7 @@ test:1.5:
     - .test
   tags:
     - nvidia
+    - cuda_11.0
     - sm_70
   script:
     - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
@@ -37,6 +39,7 @@ test:nightly:
     - .test
   tags:
     - nvidia
+    - cuda_11.0
     - sm_70
   script:
     - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
