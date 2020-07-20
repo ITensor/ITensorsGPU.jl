@@ -9,8 +9,7 @@ test:1.4:
     - nvidia
     - cuda_11.0
   script:
-    - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
-    - julia --project -e 'using Pkg; Pkg.develop(["CUDA", "GPUArrays", "GPUCompiler"]);'
+    - julia --project -e 'using Pkg; Pkg.develop(["ITensors", "CUDA", "GPUArrays", "GPUCompiler"]);'
     - julia --project -e 'using Pkg; Pkg.test("ITensorsGPU"; coverage=true)'
   variables:
     JULIA_CUDA_VERSION: '11.0'
@@ -24,8 +23,7 @@ test:1.5:
     - nvidia
     - cuda_11.0
   script:
-    - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
-    - julia --project -e 'using Pkg; Pkg.develop(["CUDA", "GPUArrays", "GPUCompiler"]);'
+    - julia --project -e 'using Pkg; Pkg.develop(["ITensors", "CUDA", "GPUArrays", "GPUCompiler"]);'
     - julia --project -e 'using Pkg; Pkg.test("ITensorsGPU"; coverage=true)'
   variables:
     JULIA_CUDA_VERSION: '11.0'
@@ -39,8 +37,7 @@ test:nightly:
     - nvidia
     - cuda_11.0
   script:
-    - julia --project -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/ITensor/ITensors.jl.git"));'
-    - julia --project -e 'using Pkg; Pkg.develop(["CUDA", "GPUArrays", "GPUCompiler"]);'
+    - julia --project -e 'using Pkg; Pkg.develop(["ITensors", "CUDA", "GPUArrays", "GPUCompiler"]);'
     - julia --project -e 'using Pkg; Pkg.test("ITensorsGPU")'
   allow_failure: true
   variables:

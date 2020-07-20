@@ -107,7 +107,7 @@ function LinearAlgebra.eigen(T::Hermitian{ElT,<:CuDenseTensor{ElT,2,IndsT}};
   return D,U,spec
 end
 
-function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}) where {ElT,IndsT}
+function LinearAlgebra.qr(T::CuDenseTensor{ElT,2,IndsT}; kwargs...) where {ElT,IndsT}
   QM,RM = qr(matrix(T))
   # Make the new indices to go onto Q and R
   q,r = inds(T)
