@@ -1,7 +1,6 @@
 # ITensorsGPU: Intelligent Tensors with GPU acceleration
 
 
-
 [![codecov](https://codecov.io/gh/ITensor/ITensorsGPU.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ITensor/ITensorsGPU.jl)
 
 [![gitlab-ci](https://gitlab.com/JuliaGPU/ITensorsGPU-jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/ITensorsGPU-jl/commits/master)
@@ -12,9 +11,10 @@ This package is meant to extend the functionality of [ITensors.jl](https://githu
 
 What you'll need:
   - Julia 1.x -- I use 1.4-dev but anything 1.1 or after should work
+  - the [ITensors.jl](https://github.com/ITensor/ITensors.jl) library: `add ITensors` to install
   - CUDA 10.1
   - CUTENSOR v1.0.0 -- `libcutensor.so` needs to be on your `LD_LIBRARY_PATH` so that `CuArrays.jl` will be able to find it.
-  - A copy of this repo that is available to Julia. `ITensors.jl` and `ITensorsGPU.jl` are presently *not* registered in the main Julia package registry. The easiest way to acquire them is to do an `add` or `dev` using their URLs:
+  - A copy of this repo that is available to Julia. `ITensorsGPU.jl` is presently *not* registered in the main Julia package registry. The easiest way to acquire it is to do an `add` or `dev` using its URL:
   
     ```
     julia> ]
