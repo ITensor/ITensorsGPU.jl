@@ -35,7 +35,7 @@ function truncate!(P::CuVector{Float64};
         sub_arr = rP .- cutoff
         err_rP  = sub_arr ./ abs.(sub_arr)
         flags   = reinterpret(Float64, (signbit.(err_rP) .<< 1 .& 2) .<< 61)
-        cut_ind = CUDA.CUBLAS.iamax(err_rP .* flags) - 1
+        cut_ind = CUDA.CUBLAS.iamax(length(err_rP), err_rP .* flags) - 1
         n = min(maxdim, length(P) - cut_ind)
         n = max(n, mindim)
         truncerr += sum(rP[cut_ind+1:end])
@@ -53,7 +53,7 @@ function truncate!(P::CuVector{Float64};
         sub_arr = rP .+ truncerr .- cutoff*scale
         err_rP  = sub_arr ./ abs.(sub_arr)
         flags   = reinterpret(Float64, (signbit.(err_rP) .<< 1 .& 2) .<< 61)
-        cut_ind = CUDA.CUBLAS.iamax(err_rP .* flags) - 1
+        cut_ind = CUDA.CUBLAS.iamax(length(err_rP), err_rP .* flags) - 1
         if cut_ind > 0
             truncerr += sum(rP[cut_ind+1:end])
             n = min(maxdim, length(P) - cut_ind)
