@@ -36,16 +36,12 @@ op(gn::OpName, ::SiteType"Qubit", s::Index...; kwargs...) =
 
 N = 10
 s = siteinds("Qubit", N)
-X = cuITensor.(ops(s, [("X", n) for n in 1:N]))
+X = cu.(ops(s, [("X", n) for n in 1:N]))
 
-initstate = fill("",N)
-for j=1:N
-  initstate[j] = "0"
-end
+initstate = fill("0", N)
 
 ψ0 = productCuMPS(s, initstate)
 
 gates = [X[n] for n in 1:2:N]
 ψ = apply(gates, ψ0)
-
 

@@ -25,6 +25,8 @@ cuITensor(A::Array{S},   inds::Index...) where {S<:Number} = cuITensor(A,IndexSe
 cuITensor(A::CuArray{S}, inds::Index...) where {S<:Number} = cuITensor(A,IndexSet(inds...))
 cuITensor(A::ITensor) = store(tensor(A)) isa ITensors.Empty ? cuITensor(A.inds) : cuITensor(data(store(tensor(A))), A.inds)
 
+cu(A::ITensor) = cuITensor(A)
+
 function Base.collect(A::ITensor)
     typeof(A.store.data) <: CuArray && return ITensor(collect(A.store), A.inds)    
     return A

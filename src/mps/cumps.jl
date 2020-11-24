@@ -5,6 +5,9 @@ function cuMPS(psi::MPS)
     end
     return phi
 end
+
+cu(ψ::MPS) = cuMPS(ψ)
+
 cuMPS() = MPS() 
 function cuMPS(sites) # random MPS
   N = length(sites)

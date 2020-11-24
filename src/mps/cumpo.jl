@@ -10,6 +10,8 @@ cuMPO() = MPO()
 cuMPO(A::Vector{ITensor}) = cuMPO(MPO(A))
 cuMPO(sites) = cuMPO(MPO(sites))
 
+cu(M::MPO) = cuMPO(M)
+
 function randomCuMPO(sites, m::Int=1)
   M = cuMPO(sites)
   for i ∈ eachindex(sites)

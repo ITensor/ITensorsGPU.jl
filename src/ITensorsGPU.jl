@@ -10,7 +10,7 @@ using TimerOutputs
 using StaticArrays
 using ITensors
 using Strided
-import CUDA: CuArray, CuMatrix, CuVector
+import CUDA: CuArray, CuMatrix, CuVector, cu
 import CUDA.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
 
 import CUDA.Mem: pin
@@ -51,7 +51,8 @@ include("mps/cumpo.jl")
 #const ContractionPlans = Dict{String, Tuple{cutensorAlgo_t, cutensorContractionPlan_t}}()
 const ContractionPlans = Dict{String, cutensorAlgo_t}()
 
-export cuITensor,
+export cu,
+       cuITensor,
        randomCuITensor,
        cuMPS,
        randomCuMPS,
