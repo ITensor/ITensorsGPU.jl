@@ -4,7 +4,7 @@
 
 [![gitlab-ci](https://gitlab.com/JuliaGPU/ITensorsGPU-jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/ITensorsGPU-jl/commits/master)
 
-This package is extends the functionality of [ITensors.jl](https://github.com/ITensor/ITensors.jl) to make use of CUDA-enabled GPUs to accelerate tensor contractions and factorizations. It sits on top of the wonderful [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl) package and uses NVIDIA's [cuTENSOR](https://developer.nvidia.com/cutensor) library for high-performance tensor operations.
+This package extends the functionality of [ITensors.jl](https://github.com/ITensor/ITensors.jl) to make use of CUDA-enabled GPUs to accelerate tensor contractions and factorizations. It sits on top of the wonderful [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl) package and uses NVIDIA's [cuTENSOR](https://developer.nvidia.com/cutensor) library for high-performance tensor operations.
 
 ## Installing ITensorsGPU.jl
 
