@@ -10,15 +10,18 @@ This package extends the functionality of [ITensors.jl](https://github.com/ITens
 
 Dependencies:
   - [Julia 1.3 or later](https://julialang.org/downloads/)
-  - [CUDA 10.1 or later](https://developer.nvidia.com/cuda-downloads) -- NVIDIA drivers are required so that Julia can make use of the NVIDIA GPU on your system.
-  - [cuTENSOR v1.0.0 or later](https://developer.nvidia.com/cutensor) -- A specialized library for perfoming permutation-free tensor contractions on the GPU. `libcutensor.so` needs to be on your `LD_LIBRARY_PATH` so that `CUDA.jl` will be able to find it.
+  - [CUDA 10.1 or later](https://developer.nvidia.com/cuda-downloads) -- Currently only NVIDIA GPUs are supported. NVIDIA drivers are required so that Julia can make use of the NVIDIA GPU on your system.
+  - [cuTENSOR v1.0.0 or later](https://developer.nvidia.com/cutensor) -- A specialized library for perfoming permutation-free tensor contractions on the GPU. `libcutensor.so` needs to be in your `LD_LIBRARY_PATH` so that `CUDA.jl` will be able to find it.
   - [ITensors.jl](https://itensor.github.io/ITensors.jl/stable/#Installation-1)
 
-To properly install CUDA with Julia, it may be helpful to first follow the [CUDA.jl installation instructions](https://juliagpu.github.io/CUDA.jl/stable/installation/overview/) and test that you have that installed properly and that it is able to use `cuTENSOR`. You can run the command:
+To properly install CUDA with Julia, it may be helpful to first follow the [CUDA.jl installation instructions](https://juliagpu.github.io/CUDA.jl/stable/installation/overview/) and test that you have that installed properly and that it is able to use `cuTENSOR`. You can run the commands:
 ```julia
-julia> using CUDA
+julia> using CUDA.CUTENSOR
 
-julia> CUDA.CUTENSOR.version()
+julia> CUTENSOR.has_cutensor()
+true
+
+julia> CUTENSOR.version()
 v"1.2.1"
 ```
 to check that `CUDA.jl` can see the version of `cuTENSOR` you have installed.
@@ -43,5 +46,5 @@ Take a look at the `examples/` directory for examples of running ITensor calcula
 
 For an application of `ITensorsGPU.jl` to more sophisticated tensor network calculations, take a look at [PEPS.jl](https://github.com/ITensor/PEPS.jl).
 
-For some background on the development of this package, you can take a look at [this blog post](https://kshyatt.github.io/post/itensorsgpu/) by Katie Hyatt, author of the `ITensorsGPU.jl` package and `CUDA.jl` developer.
+For some background on the development and design of this package, you can take a look at [this blog post](https://kshyatt.github.io/post/itensorsgpu/) by Katie Hyatt, original author of the `ITensorsGPU.jl` package.
 
