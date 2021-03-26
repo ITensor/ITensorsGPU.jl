@@ -93,9 +93,12 @@ using ITensors,
   end
 
   @testset "add MPS" begin
+    psi      = randomMPS(sites)
+    phi      = deepcopy(psi)
+    xi       = add(psi, phi)
+    @test inner(xi, xi) ≈ 4.0 * inner(psi, psi) 
     psi      = randomCuMPS(sites)
-    phi      = similar(psi)
-    phi.data = deepcopy(psi.data)
+    phi      = deepcopy(psi)
     xi       = add(psi, phi)
     @test inner(xi, xi) ≈ 4.0 * inner(psi, psi) 
   end

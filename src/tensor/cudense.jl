@@ -34,8 +34,9 @@ end
 
 function Base.permutedims(T::CuDenseTensor{<:Number,N},
                           perm::NTuple{N,Int}) where {N}
-  Tp = similar(T,permute(inds(T),perm))
-  permute!(Tp,T)
+  Tp = similar(T,ITensors.NDTensors.permute(inds(T),perm))
+  #Tp = permute(T,perm; always_copy=true)
+  permute!(Tp, T)
   return Tp
 end
 
@@ -50,7 +51,7 @@ function permutedims!!(B::Tensor{ElT,N,StoreT,IndsB},
                        perm::NTuple{N,Int},
                        f::Function=(r,t)->permute!(r,t)) where {N,ElT,IndsB,IndsA,StoreT<:CuDense{ElT}}
   Ais = inds(A)
-  Bis = permute(inds(A), perm)
+  Bis = ITensors.NDTensors.permute(inds(A), perm)
   B = f(B, A)
   return B
 end
@@ -117,9 +118,49 @@ function permutedims!!(B::CuDenseTensor{ElT,N},
                        A::CuDenseTensor{ElT,0},
                        perm::NTuple{N,Int},
                        f=(r,t)->permute!(r,t)) where {N, ElT<:Number}
-    Cis = permute(inds(B), perm)
+    Cis = ITensors.NDTensors.permute(inds(B), perm)
     Cs = f(B, A)
     return Tensor(Dense(vec(Cs)), Cis) 
+end
+
+function _contract_scalar!(R::CuDenseTensor{ElR}, labelsR,
+                           T1::Number, labelsT1,
+                           T2::Number, labelsT2,
+                           α = one(ElR), β = zero(ElR)) where {ElR}
+  if iszero(β)
+    copyto!(data(R), [α * T1 * T2])
+  elseif iszero(α)
+    copyto!(data(R), β.*data(R))
+  else
+    copyto!(data(R), [α * T1 * T2] .+ β.*data(R))
+  end
+  return R
+end
+
+function _contract_scalar!(R::CuDenseTensor{ElR,NR}, labelsR,
+                           T₁::CuDenseTensor, labelsT₁,
+                           T₂::CuDenseTensor, labelsT₂,
+                           α = one(ElR), β=zero(ElR)) where {ElR,NR}
+    if nnz(T₁) == nnz(T₂) == 1
+        R = Tensor(Dense(data(store(T₁)).*data(store(T₂))), inds(R))
+    elseif nnz(T₁) == 1
+        props = ContractionProperties(labelsT₁, labelsT₂, labelsR)
+        compute_contraction_properties!(props, T₁, T₂, R)
+        R = _contract!(R, T₁, T₂, props, α, β)
+        #perm = getperm(labelsR,labelsT₂)
+        #newT2 = Tensor(Dense(data(store(T₁)).*data(store(T₂))), inds(T₂))
+        #permute!(R,newT2)
+    elseif nnz(T₂) == 1
+        props = ContractionProperties(labelsT₁, labelsT₂, labelsR)
+        compute_contraction_properties!(props, T₁, T₂, R)
+        R = _contract!(R, T₁, T₂, props, α, β)
+        #perm = getperm(labelsR,labelsT₁)
+        #newT1 = Tensor(Dense(data(store(T₁)).*data(store(T₂))), inds(T₁))
+        #permute!(R,newT1)
+    else
+        error("In _contract_scalar!, one tensor must be a scalar")
+    end
+    return R
 end
 
 function _contract!(CT::CuDenseTensor{El,NC},

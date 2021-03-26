@@ -24,7 +24,8 @@ using ITensors,
   K_ = cuMPO(ITensors.data(K))
   @test all(ITensors.data(K) .== ITensors.data(K_))
 
-  L = randomMPO(sites)
+  s = siteinds("S=1/2", N)
+  L = randomMPO(s)
   K = cuMPO(L)
   @test all(ITensors.data(collect(K)) .== ITensors.data(collect(L)))
   @testset "orthogonalize" begin
