@@ -142,7 +142,8 @@ function _contract_scalar!(R::CuDenseTensor{ElR,NR}, labelsR,
                            T₂::CuDenseTensor, labelsT₂,
                            α = one(ElR), β=zero(ElR)) where {ElR,NR}
     if nnz(T₁) == nnz(T₂) == 1
-        R = Tensor(Dense(data(store(T₁)).*data(store(T₂))), inds(R))
+        new_R = Tensor(Dense(data(store(T₁)).*data(store(T₂))), inds(R))
+        copyto!(R, new_R)
     elseif nnz(T₁) == 1
         props = ContractionProperties(labelsT₁, labelsT₂, labelsR)
         compute_contraction_properties!(props, T₁, T₂, R)
