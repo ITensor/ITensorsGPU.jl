@@ -50,7 +50,20 @@ randomCuITensor(inds::Index...) = randomCuITensor(Float64,IndexSet(inds...))
 
 CuArray(T::ITensor) = CuArray(tensor(T))
 
-CuArray(T::ITensor,ninds::Index...) = storage_convert(CuArray,store(T),inds(T),IndexSet(ninds))
+function CuArray{ElT, N}(T::ITensor,
+                         is::Vararg{Index, N}) where {ElT, N}
+  ndims(T) != N && throw(DimensionMismatch("cannot convert an $(ndims(T)) dimensional ITensor to an $N-dimensional CuArray."))
+  TT = tensor(permute(T, is...; always_copy = true))
+  return CuArray{ElT, N}(TT)::CuArray{ElT, N}
+end
+
+function CuArray{ElT}(T::ITensor, is::Vararg{Index, N}) where {ElT, N}
+    return CuArray{ElT, N}(T, is...)
+end
+
+function CuArray(T::ITensor, is::Vararg{Index, N}) where {N}
+  return CuArray{eltype(T), N}(T, is...)::CuArray{<:Number, N}
+end
 
 CUDA.CuMatrix(A::ITensor) = CuArray(A)
 
@@ -61,13 +74,8 @@ function CuVector(A::ITensor)
   return CuArray(A)
 end
 
-function CuArray(T::ITensor{N},is::Vararg{Index,N}) where {N}
-  perm = getperm(inds(T),is)
-  return CuArray(permutedims(tensor(T),perm))
-end
-
-function CuMatrix(T::ITensor{N},i1::Index,i2::Index) where {N}
-  N≠2 && throw(DimensionMismatch("ITensor must be order 2 to convert to a Matrix"))
+function CuMatrix(T::ITensor,i1::Index,i2::Index)
+  ndims(T) != 2 && throw(DimensionMismatch("ITensor must be order 2 to convert to a Matrix"))
   return CuArray(T,i1,i2)
 end
 

@@ -68,13 +68,31 @@ using ITensors,
   end
 
   @testset "inner different MPS" begin
-    phi = randomCuMPS(sites)
-    psi = randomCuMPS(sites)
+    phi = randomMPS(sites)
+    psi = randomMPS(sites)
     phipsi = dag(phi[1])*psi[1]
     for j = 2:N
       phipsi *= dag(phi[j])*psi[j]
     end
     @test phipsi[] ≈ inner(phi,psi)
+    phi = randomCuMPS(sites)
+    psi = randomCuMPS(sites)
+    cphi = MPS([collect(phi[i]) for i in 1:length(phi)])
+    cpsi = MPS([collect(psi[i]) for i in 1:length(psi)])
+    phipsi = dag(phi[1])*psi[1]
+    cphipsi = dag(cphi[1])*cpsi[1]
+    for j = 2:N
+      phipsi  *= dag(phi[j])*psi[j]
+      cphipsi *= dag(cphi[j])*cpsi[j]
+    end
+    @test collect(phipsi)[] ≈ cphipsi[]
+    @test collect(phipsi)[] ≈ inner(cphi,cpsi)
+    @test collect(phipsi)[] ≈ inner(phi,psi)
+    phipsi = dag(phi[1])*psi[1]
+    for j = 2:N
+      phipsi = phipsi*dag(phi[j])*psi[j]
+    end
+    @test collect(phipsi)[] ≈ inner(phi,psi)
  
     badsites = [Index(2) for n=1:N+1]
     badpsi = randomCuMPS(badsites)
@@ -82,20 +100,31 @@ using ITensors,
   end
 
   @testset "inner same MPS" begin
-    psi = randomCuMPS(sites)
-    psidag = dag(psi)
+    psi    = randomMPS(sites)
+    psidag = dag(deepcopy(psi))
     ITensors.prime_linkinds!(psidag)
     psipsi = psidag[1]*psi[1]
     for j = 2:N
-      psipsi *= psidag[j]*psi[j]
+      psipsi = psipsi * psidag[j]*psi[j]
+    end
+    @test psipsi[] ≈ inner(psi,psi)
+    psi    = randomCuMPS(sites)
+    psidag = dag(deepcopy(psi))
+    ITensors.prime_linkinds!(psidag)
+    psipsi = psidag[1]*psi[1]
+    for j = 2:N
+      psipsi = psipsi *psidag[j]*psi[j]
     end
     @test psipsi[] ≈ inner(psi,psi)
   end
 
   @testset "add MPS" begin
+    psi      = randomMPS(sites)
+    phi      = deepcopy(psi)
+    xi       = add(psi, phi)
+    @test inner(xi, xi) ≈ 4.0 * inner(psi, psi) 
     psi      = randomCuMPS(sites)
-    phi      = similar(psi)
-    phi.data = deepcopy(psi.data)
+    phi      = deepcopy(psi)
     xi       = add(psi, phi)
     @test inner(xi, xi) ≈ 4.0 * inner(psi, psi) 
   end

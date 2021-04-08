@@ -31,12 +31,13 @@ end
 import ITensors: randn!, compute_contraction_labels,
                  plussers, eigen, similar_type, tensor,
                  scale!, unioninds, array, matrix, vector,
-                 polar, tensors, truncate!, leftlim, rightlim
+                 polar, tensors, truncate!, leftlim, rightlim,
+                 permute, BroadcastStyle
 import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
                          outer!, outer!!, is_trivial_permutation, ind, permutedims!!, Dense, DenseTensor, Combiner,
-                         Tensor, data, permute, getperm, compute_contraction_properties!, Atrans, Btrans, Ctrans
+                         Tensor, data, getperm, compute_contraction_properties!, Atrans, Btrans, Ctrans, _contract_scalar!, _contract_scalar_noperm!
 import Base.*, Base.permutedims!
 include("tensor/cudense.jl")
 include("tensor/dense.jl")
