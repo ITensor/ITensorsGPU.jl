@@ -79,3 +79,14 @@ function CuMatrix(T::ITensor,i1::Index,i2::Index)
   return CuArray(T,i1,i2)
 end
 
+function ITensors.can_combine_contract(A::ITensor, B::ITensor)
+    iscu = ndims(A) > 12 && ndims(B) > 12 &&
+           !iscombiner(A) && !iscombiner(B) &&
+           !isdiag(A) && !isdiag(B) &&
+           data(store(A)) isa CuArray &&
+           data(store(B)) isa CuArray
+    former = hasqns(A) && hasqns(B) &&
+             !iscombiner(A) && !iscombiner(B) &&
+             !isdiag(A) && !isdiag(B)
+    return iscu || former
+end

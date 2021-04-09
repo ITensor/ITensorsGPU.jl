@@ -381,16 +381,25 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   Bdata = data(store(B))
   reshapeBdata = reshape(Bdata,dims(Bis))
   reshapeAdata = reshape(Adata,dims(Ais))
-  ctainds = zeros(Int, length(Ais))
-  ctbinds = zeros(Int, length(Bis))
-  for (ii, ia) in enumerate(Ais)
-      ctainds[ii] = findfirst(x->x==ia, ind_dict)
+  if ndims(A) < 12 # use CUTENSOR
+      ctainds = zeros(Int, length(Ais))
+      ctbinds = zeros(Int, length(Bis))
+      for (ii, ia) in enumerate(Ais)
+          ctainds[ii] = findfirst(x->x==ia, ind_dict)
+      end
+      for (ii, ib) in enumerate(Bis)
+          ctbinds[ii] = findfirst(x->x==ib, ind_dict)
+      end
+      CUDA.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds))
+  else # use GPUArrays
+      perm = Int[]
+      for aix in Ais
+        b_pos = findfirst(bix->bix==aix, Bis)
+        push!(perm, b_pos)
+      end
+      @assert isperm(perm)
+      permutedims!(reshapeBdata, reshapeAdata, invperm(perm))
   end
-  for (ii, ib) in enumerate(Bis)
-      ctbinds[ii] = findfirst(x->x==ib, ind_dict)
-  end
-  
-  CUDA.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
   return vec(reshapeBdata) 
 end
 
