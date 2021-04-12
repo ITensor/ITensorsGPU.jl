@@ -28,7 +28,7 @@ cuITensor(A::ITensor) = store(tensor(A)) isa ITensors.Empty ? cuITensor(A.inds) 
 cu(A::ITensor) = cuITensor(A)
 
 function Base.collect(A::ITensor)
-    typeof(A.store.data) <: CuArray && return ITensor(collect(A.store), A.inds)    
+    typeof(data(storage(A))) <: CuArray && return ITensor(collect(storage(A)), A.inds)    
     return A
 end
 
@@ -78,4 +78,3 @@ function CuMatrix(T::ITensor,i1::Index,i2::Index)
   ndims(T) != 2 && throw(DimensionMismatch("ITensor must be order 2 to convert to a Matrix"))
   return CuArray(T,i1,i2)
 end
-

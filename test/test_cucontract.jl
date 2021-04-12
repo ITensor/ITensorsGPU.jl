@@ -2,6 +2,7 @@ using ITensors,
       ITensorsGPU,
       LinearAlgebra, # For tr()
       Combinatorics, # For permutations()
+      Random,
       CUDA,
       Test
 
@@ -11,7 +12,7 @@ using ITensors,
   j = Index(mj,"j")
   k = Index(mk,"k")
   l = Index(ml,"l")
-  a = Index(ma,"a") 
+  a = Index(ma,"a")
   @testset "Test contract cuITensors" begin
       A = cuITensor(randomITensor(T))
       B = cuITensor(randomITensor(T))
@@ -192,6 +193,31 @@ using ITensors,
         Ccollect = collect(Ajkl)*collect(Aijkl) 
         @test Ccollect≈collect(C)
       end
+    end
+    @testset "Test supersized contract cuITensors (14-Tensor*14-Tensor -> 14-Tensor)" begin
+        a_only_inds = [Index(2) for ii in 1:7]
+        b_only_inds = [Index(2) for ii in 1:7]
+        shared_inds = [Index(2) for ii in 1:7]
+        A = randomITensor(IndexSet(vcat(a_only_inds, shared_inds)))
+        B = randomITensor(IndexSet(vcat(b_only_inds, shared_inds)))
+        cA = cuITensor(A)
+        cB = cuITensor(B)
+        inds_a = vcat(a_only_inds, shared_inds)
+        inds_b = vcat(b_only_inds, shared_inds)
+        cA_ = permute(cA,inds_a...)
+        cB_ = permute(cB,inds_b...)
+        C = cA_*cB_
+        Ccollect = collect(cA_)*collect(cB_)
+        @test Ccollect≈collect(C)
+        for shuffles in 1:1 # too many permutations to test all
+            inds_a = shuffle(vcat(a_only_inds, shared_inds))
+            inds_b = shuffle(vcat(b_only_inds, shared_inds))
+            cA_ = permute(cA,inds_a...)
+            cB_ = permute(cB,inds_b...)
+            C = cA_*cB_
+            Ccollect = collect(cA_)*collect(cB_)
+            @test Ccollect≈collect(C)
+        end
     end
   end # End contraction testset
 end

@@ -2,6 +2,7 @@ using ITensors,
       ITensorsGPU,
       LinearAlgebra, # For tr()
       Combinatorics, # For permutations()
+      Random,
       CUDA,
       Test
 
@@ -18,11 +19,11 @@ using ITensors,
       @test collect(CuArray(A, i, j, k)) == ones(SType, dim(i), dim(j), dim(k))
       A = randomCuITensor(IndexSet(i,j,k))
       @test inds(A) == IndexSet(i, j, k)
-      @test ITensorsGPU.store(A) isa ITensorsGPU.CuDense
+      @test ITensorsGPU.storage(A) isa ITensorsGPU.CuDense
       Aarr = rand(SType, dim(i)*dim(j)*dim(k))
       @test collect(ITensor(Aarr, i, j, k)) == collect(cuITensor(Aarr, i, j, k))
       @test cuITensor(SType, i, j, k) isa ITensor
-      @test store(cuITensor(SType, i, j, k)) isa ITensorsGPU.CuDense{SType} 
+      @test storage(cuITensor(SType, i, j, k)) isa ITensorsGPU.CuDense{SType} 
       @test vec(collect(CuArray(ITensor(Aarr, i,j,k), i, j, k))) == Aarr 
   end
   @testset "Test permute(cuITensor,Index...)" begin
@@ -35,6 +36,20 @@ using ITensors,
     A = collect(CA)
     for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
       @test A[k(kk),i(ii),j(jj)]==permA[i(ii),j(jj),k(kk)]
+    end
+  end
+  @testset "Test permute(cuITensor,Index...) for large tensors" begin
+    inds   = [Index(2) for ii in 1:14] 
+    A      = randomITensor(SType,IndexSet(inds))
+    CA     = cuITensor(A)
+    for shuffle_count in 1:20
+        perm_inds = shuffle(inds)
+        permCA = permute(CA,perm_inds...)
+        permA  = collect(permCA)
+        pA     = permute(A, perm_inds...) 
+        for ci ∈ CartesianIndices(pA) 
+          @test pA[ci]==permA[ci]
+        end
     end
   end
   #=@testset "Test scalar(cuITensor)" begin

@@ -164,11 +164,82 @@ function _contract_scalar!(R::CuDenseTensor{ElR,NR}, labelsR,
     return R
 end
 
+function _gemm_contract!(CT::DenseTensor{El,NC},
+                         AT::DenseTensor{El,NA},
+                         BT::DenseTensor{El,NB},
+                         props::ContractionProperties,
+                         α::Number=one(El),
+                         β::Number=zero(El)) where {El,NC,NA,NB}
+    # TODO: directly use Tensor instead of Array
+    C = array(CT)
+    A = array(AT)
+    B = array(BT)
+
+    tA = 'N'
+    if props.permuteA
+        pA = NTuple{NA,Int}(props.PA)
+        Ap = permutedims(A, pA)
+        AM = reshape(Ap, props.dmid, props.dleft)
+        tA = 'T'
+    else
+        #A doesn't have to be permuted
+        if Atrans(props)
+            AM = reshape(A,props.dmid,props.dleft)
+            tA = 'T'
+        else
+            AM = reshape(A,props.dleft,props.dmid)
+        end
+    end
+
+    tB = 'N'
+    if props.permuteB
+        pB = NTuple{NB,Int}(props.PB)
+        Bp = permutedims(B, pB)
+        BM = reshape(Bp, props.dmid, props.dright)
+    else
+        if Btrans(props)
+            BM = reshape(B,props.dright,props.dmid)
+            tB = 'T'
+        else
+            BM = reshape(B,props.dmid,props.dright)
+        end
+    end
+
+    #TODO: this logic may be wrong
+    if props.permuteC
+        #Need to copy here since we will be permuting
+        #into C later
+        CM = reshape(copy(C), props.dleft, props.dright)
+    else
+        if Ctrans(props)
+            CM = reshape(C,props.dleft,props.dright)
+            (AM,BM) = (BM,AM)
+            if tA==tB
+                tA = tB = (tA == 'T' ? 'N' : 'T')
+            end
+        else
+            CM = reshape(C, props.dleft, props.dright)
+        end
+    end
+
+    CM = CUBLAS.gemm!(tA,tB,El(α),AM,BM,El(β),CM)
+
+    if props.permuteC
+        pC = NTuple{NC,Int}(props.PC)
+        Cr = reshape(CM,props.newCrange...)
+        @strided C .= permutedims(Cr, pC)
+    end
+    return C
+end
+
 function _contract!(CT::CuDenseTensor{El,NC},
                     AT::CuDenseTensor{El,NA},
                     BT::CuDenseTensor{El,NB},
                     props::ContractionProperties,
                     α::Number=one(El),β::Number=zero(El)) where {El,NC,NA,NB}
+  if ndims(CT) > 12 || ndims(BT) > 12 || ndims(AT) > 12
+    return _gemm_contract!(CT, AT, BT, props, α, β)
+  end
   Ainds = inds(AT)
   Adims = dims(Ainds)
   Binds = inds(BT)
@@ -381,16 +452,25 @@ function Base.permute!(B::CuDenseTensor, A::CuDenseTensor)
   Bdata = data(store(B))
   reshapeBdata = reshape(Bdata,dims(Bis))
   reshapeAdata = reshape(Adata,dims(Ais))
-  ctainds = zeros(Int, length(Ais))
-  ctbinds = zeros(Int, length(Bis))
-  for (ii, ia) in enumerate(Ais)
-      ctainds[ii] = findfirst(x->x==ia, ind_dict)
+  if ndims(A) < 12 # use CUTENSOR
+      ctainds = zeros(Int, length(Ais))
+      ctbinds = zeros(Int, length(Bis))
+      for (ii, ia) in enumerate(Ais)
+          ctainds[ii] = findfirst(x->x==ia, ind_dict)
+      end
+      for (ii, ib) in enumerate(Bis)
+          ctbinds[ii] = findfirst(x->x==ib, ind_dict)
+      end
+      CUDA.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds))
+  else # use GPUArrays
+      perm = Int[]
+      for aix in Ais
+        b_pos = findfirst(bix->bix==aix, Bis)
+        push!(perm, b_pos)
+      end
+      @assert isperm(perm)
+      permutedims!(reshapeBdata, reshapeAdata, invperm(perm))
   end
-  for (ii, ib) in enumerate(Bis)
-      ctbinds[ii] = findfirst(x->x==ib, ind_dict)
-  end
-  
-  CUDA.CUTENSOR.permutation!(one(eltype(Adata)), reshapeAdata, Vector{Char}(ctainds), reshapeBdata, Vector{Char}(ctbinds)) 
   return vec(reshapeBdata) 
 end
 
