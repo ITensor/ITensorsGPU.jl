@@ -32,7 +32,7 @@ import ITensors: randn!, compute_contraction_labels,
                  plussers, eigen, similar_type, tensor,
                  scale!, unioninds, array, matrix, vector,
                  polar, tensors, truncate!, leftlim, rightlim,
-                 permute, BroadcastStyle, iscombiner, isdiag
+                 permute, BroadcastStyle
 import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
@@ -61,7 +61,4 @@ export cu,
        randomCuMPO,
        cuMPO
 
-function __init__()
-    ITensors.enable_combine_contract()
-end
 end #module
