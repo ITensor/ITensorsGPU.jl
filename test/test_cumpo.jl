@@ -27,7 +27,7 @@ using ITensors,
   s = siteinds("S=1/2", N)
   L = randomMPO(s)
   K = cuMPO(L)
-  @test all(ITensors.data(collect(K)) .== ITensors.data(collect(L)))
+  @test all(ITensors.data(cpu(K)) .== ITensors.data(cpu(L)))
   @testset "orthogonalize" begin
     phi = randomCuMPS(sites)
     K = randomCuMPO(sites)
