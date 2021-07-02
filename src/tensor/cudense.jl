@@ -9,7 +9,7 @@ function Dense{T, S}(x::T, size::Integer) where {T, S<:CuArray{<:T}}
     fill!(arr, x)
     Dense{T, S}(arr)
 end
-Base.collect(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
+cpu(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
 Base.complex(::Type{Dense{ElT, VT}}) where {ElT, VT<:CuArray} = Dense{complex(ElT),CuVector{complex(ElT)}}
 
 CuArray(x::CuDense{ElT}) where {ElT} = CuVector{ElT}(data(x))
@@ -19,7 +19,7 @@ CuArray(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(x)
 *(D::Dense{T, AT},x::S) where {T,AT<:CuArray,S<:Number} = Dense(x .* data(D))
 
 Base.:(==)(::Type{<:CuDense{ElT1,CVec1}}, ::Type{<:CuDense{ElT2,CVec2}}) where {ElT1,ElT2,CVec1,CVec2} = (ElT1 == ElT2)
-Base.getindex(D::CuDense{<:Number})       = collect(data(D))[]
+Base.getindex(D::CuDense{<:Number})          = collect(data(D))[]
 Base.getindex(D::CuDenseTensor{<:Number, 0}) = store(D)[]
 LinearAlgebra.norm(T::CuDenseTensor) = norm(data(store(T)))
 

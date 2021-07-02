@@ -21,7 +21,7 @@ using ITensors,
       @test inds(A) == IndexSet(i, j, k)
       @test ITensorsGPU.storage(A) isa ITensorsGPU.CuDense
       Aarr = rand(SType, dim(i)*dim(j)*dim(k))
-      @test collect(ITensor(Aarr, i, j, k)) == collect(cuITensor(Aarr, i, j, k))
+      @test cpu(ITensor(Aarr, i, j, k)) == cpu(cuITensor(Aarr, i, j, k))
       @test cuITensor(SType, i, j, k) isa ITensor
       @test storage(cuITensor(SType, i, j, k)) isa ITensorsGPU.CuDense{SType} 
       @test vec(collect(CuArray(ITensor(Aarr, i,j,k), i, j, k))) == Aarr 
@@ -29,11 +29,11 @@ using ITensors,
   @testset "Test permute(cuITensor,Index...)" begin
     CA     = randomCuITensor(SType,i,k,j)
     permCA = permute(CA,k,j,i)
-    permA  = collect(permCA)
+    permA  = cpu(permCA)
     @test k==inds(permA)[1]
     @test j==inds(permA)[2]
     @test i==inds(permA)[3]
-    A = collect(CA)
+    A = cpu(CA)
     for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
       @test A[k(kk),i(ii),j(jj)]==permA[i(ii),j(jj),k(kk)]
     end
@@ -45,7 +45,7 @@ using ITensors,
     for shuffle_count in 1:20
         perm_inds = shuffle(inds)
         permCA = permute(CA,perm_inds...)
-        permA  = collect(permCA)
+        permA  = cpu(permCA)
         pA     = permute(A, perm_inds...) 
         for ci ∈ CartesianIndices(pA) 
           @test pA[ci]==permA[ci]
@@ -89,9 +89,9 @@ using ITensors,
   @testset "Test add cuITensors" begin
     dA = randomCuITensor(SType,i,j,k)
     dB = randomCuITensor(SType,k,i,j)
-    A = collect(dA)
-    B = collect(dB)
-    C = collect(dA+dB)
+    A = cpu(dA)
+    B = cpu(dB)
+    C = cpu(dA+dB)
     @test CuArray(permute(C,i,j,k))==CuArray(permute(A,i,j,k))+CuArray(permute(B,i,j,k))
     for ii ∈ 1:dim(i), jj ∈ 1:dim(j), kk ∈ 1:dim(k)
       @test C[i(ii),j(jj),k(kk)]==A[j(jj),i(ii),k(kk)]+B[i(ii),k(kk),j(jj)]
@@ -106,9 +106,9 @@ using ITensors,
       U,S,V = svd(A,(j,l))
       u = commonind(U,S)
       v = commonind(S,V)
-      @test collect(A)≈collect(U*S*dag(V))
-      @test collect(U*dag(prime(U,u)))≈δ(SType,u,u') rtol=1e-14
-      @test collect(V*dag(prime(V,v)))≈δ(SType,v,v') rtol=1e-14
+      @test cpu(A)≈cpu(U*S*dag(V))
+      @test cpu(U*dag(prime(U,u)))≈δ(SType,u,u') rtol=1e-14
+      @test cpu(V*dag(prime(V,v)))≈δ(SType,v,v') rtol=1e-14
     end
 
     #=@testset "Test SVD truncation" begin 
@@ -125,13 +125,13 @@ using ITensors,
     @testset "Test QR decomposition of a cuITensor" begin
       Q,R = qr(A,(i,l))
       q = commonind(Q,R)
-      @test collect(A)≈collect(Q*R)
-      @test collect(Q*dag(prime(Q,q)))≈δ(SType,q,q') atol=1e-14
+      @test cpu(A)≈cpu(Q*R)
+      @test cpu(Q*dag(prime(Q,q)))≈δ(SType,q,q') atol=1e-14
     end
 
     #=@testset "Test polar decomposition of a cuITensor" begin
       U,P = polar(A,(k,l))
-      @test collect(A)≈collect(U*P)
+      @test cpu(A)≈cpu(U*P)
     end=#
 
   end # End ITensor factorization testset

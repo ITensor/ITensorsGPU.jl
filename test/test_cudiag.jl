@@ -44,9 +44,9 @@ using ITensors,
     @testset "Test contract cuITensors (Matrix*UniformDiag -> Matrix)" begin
       scal = itensor(ITensors.tensor(NDTensors.Diag(T(2.0)), IndexSet(i, i')))
       C    = scal*Aij
-      @test collect(C)≈2.0*collect(replaceind(Aij, i, i')) atol=1e-4
+      @test cpu(C)≈2.0*cpu(replaceind(Aij, i, i')) atol=1e-4
       C    = Aij*scal
-      @test_broken collect(C)≈2.0*collect(replaceind(permute(Aij, j, i), i, i')) atol=1e-4
+      @test_broken cpu(C)≈2.0*cpu(replaceind(permute(Aij, j, i), i, i')) atol=1e-4
     end
   end # End contraction testset
 end
@@ -89,10 +89,10 @@ end
       scal = itensor(ITensors.tensor(NDTensors.Diag(T2(2.0)), IndexSet(i, i')))
       C    = scal*Aij
       cC = CuArray(C)
-      @test collect(C)≈2.0*collect(replaceind(Aij, i, i')) atol=1e-4
+      @test collect(cC)≈array(2.0*cpu(replaceind(Aij, i, i'))) atol=1e-4
       C    = Aij*scal
       cC = CuArray(C)
-      @test_broken collect(C)≈2.0*collect(replaceind(permute(Aij, j, i), i, i')) atol=1e-4
+      @test_broken collect(cC)≈array(2.0*cpu(replaceind(permute(Aij, j, i), i, i'))) atol=1e-4
     end
   end # End contraction testset
 end

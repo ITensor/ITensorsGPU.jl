@@ -39,141 +39,141 @@ using ITensors,
     end
     @testset "Test contract cuITensor (Scalar*Vector -> Vector)" begin
       C = A*Ai
-      @test collect(C)≈scalar(A)*collect(Ai)
+      @test cpu(C)≈scalar(A)*cpu(Ai)
       C = cuITensor(T(2.0))*Ai
-      @test collect(C)≈T(2.0)*collect(Ai)
+      @test cpu(C)≈T(2.0)*cpu(Ai)
       C = Ai*cuITensor(T(2.0))
-      @test collect(C)≈T(2.0)*collect(Ai)
+      @test cpu(C)≈T(2.0)*cpu(Ai)
     end
     @testset "Test contract cuITensor (Vector*Scalar -> Vector)" begin
       C = Aj*A
-      @test collect(C)≈scalar(A)*collect(Aj)
+      @test cpu(C)≈scalar(A)*cpu(Aj)
     end
     @testset "Test contract cuITensors (Vectorᵀ*Vector -> Scalar)" begin
       C = Ai*Bi
-      Ccollect = collect(Ai) * collect(Bi) 
-      @test scalar(Ccollect)≈scalar(C)
+      Ccpu = cpu(Ai) * cpu(Bi) 
+      @test scalar(Ccpu)≈scalar(C)
     end
     @testset "Test contract cuITensors (Vector*Vectorᵀ -> Matrix)" begin
       C = Ai*Aj
-      Ccollect = collect(Ai)*collect(Aj)
-      @test Ccollect≈collect(permute(C,i,j))
+      Ccpu = cpu(Ai)*cpu(Aj)
+      @test Ccpu≈cpu(permute(C,i,j))
     end
     @testset "Test contract cuITensors (Matrix*Scalar -> Matrix)" begin
       Aij = permute(Aij,i,j)
       C = Aij*A
-      @test collect(permute(C,i,j))≈scalar(A)*collect(Aij)
+      @test cpu(permute(C,i,j))≈scalar(A)*cpu(Aij)
     end
     @testset "Test contract cuITensors (Matrixᵀ*Vector -> Vector)" begin
       cAij = permute(copy(Aij),j,i)
-      Ccollect = collect(Aij)*collect(Aj)
+      Ccpu = cpu(Aij)*cpu(Aj)
       C = cAij*Aj
-      @test Ccollect ≈ collect(C)
+      @test Ccpu ≈ cpu(C)
     end
     @testset "Test contract cuITensors (Matrix*Vector -> Vector)" begin
       cpAij = permute(copy(Aij),i,j)
-      Ccollect = collect(cpAij)*collect(Aj)
+      Ccpu = cpu(cpAij)*cpu(Aj)
       C   = copy(cpAij)*copy(Aj)
-      @test Ccollect≈collect(C)
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Vector*Matrix -> Vector)" begin
       Aij = permute(Aij,i,j)
       C = Ai*Aij
-      Ccollect = collect(Ai) * collect(Aij) 
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Ai) * cpu(Aij) 
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Vector*Matrixᵀ -> Vector)" begin
       C = Ai*Aji
-      Ccollect = collect(Ai) * collect(Aji) 
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Ai) * cpu(Aji) 
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Matrix*Matrix -> Scalar)" begin
       Aij = permute(Aij,i,j)
       Bij = permute(Bij,i,j)
       C = Aij*Bij
-      Ccollect = collect(Aij) * collect(Bij) 
-      @test scalar(Ccollect)≈scalar(C)
+      Ccpu = cpu(Aij) * cpu(Bij) 
+      @test scalar(Ccpu)≈scalar(C)
     end
     @testset "Test contract cuITensors (Matrix*Matrix -> Matrix)" begin
       Aij = permute(Aij,i,j)
       Ajk = permute(Ajk,j,k)
       C = Aij*Ajk
-      Ccollect = collect(Aij)*collect(Ajk)
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Aij)*cpu(Ajk)
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Matrixᵀ*Matrix -> Matrix)" begin
       Aij = permute(Aij,j,i)
       Ajk = permute(Ajk,j,k)
       C = Aij*Ajk
-      Ccollect = collect(Aij) * collect(Ajk) 
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Aij) * cpu(Ajk) 
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Matrix*Matrixᵀ -> Matrix)" begin
       Aij = permute(Aij,i,j)
       Ajk = permute(Ajk,k,j)
       C = Aij*Ajk
-      Ccollect = collect(Aij) * collect(Ajk) 
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Aij) * cpu(Ajk) 
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Matrixᵀ*Matrixᵀ -> Matrix)" begin
       Aij = permute(Aij,j,i)
       Ajk = permute(Ajk,k,j)
       C = Aij*Ajk
-      Ccollect = collect(Aij) * collect(Ajk) 
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Aij) * cpu(Ajk) 
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (3-Tensor*Scalar -> 3-Tensor)" begin
       Aijk = permute(Aijk,i,j,k)
       C = Aijk*A
-      @test collect(permute(C,i,j,k))≈scalar(A)*collect(Aijk)
+      @test cpu(permute(C,i,j,k))≈scalar(A)*cpu(Aijk)
     end
     @testset "Test contract cuITensors (3-Tensor*Vector -> Matrix)" begin
       cAijk = permute(copy(Aijk),i,j,k)
       C = cAijk*Ai
-      Ccollect = collect(cAijk) * collect(Ai) 
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(cAijk) * cpu(Ai) 
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (Vector*3-Tensor -> Matrix)" begin
       Aijk = permute(Aijk,i,j,k)
       C = Aj*Aijk
-      Ccollect = collect(Aj)*collect(Aijk)
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Aj)*cpu(Aijk)
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (3-Tensor*Matrix -> Vector)" begin
       Aijk = permute(Aijk,i,j,k)
       Aik = permute(Aik,i,k)
       C = Aijk*Aik
-      Ccollect = collect(Aijk)*collect(Aik)
-      @test Ccollect≈collect(C)
+      Ccpu = cpu(Aijk)*cpu(Aik)
+      @test Ccpu≈cpu(C)
     end
     @testset "Test contract cuITensors (3-Tensor*Matrix -> 3-Tensor)" begin
       Aijk = permute(Aijk,i,j,k)
       Ajl = permute(Ajl,j,l)
       C = Aijk*Ajl
-      Ccollect = collect(Aijk)*collect(Ajl)
-      @test Ccollect≈collect(permute(C,i,k,l))
+      Ccpu = cpu(Aijk)*cpu(Ajl)
+      @test Ccpu≈cpu(permute(C,i,k,l))
     end
     @testset "Test contract cuITensors (Matrix*3-Tensor -> 3-Tensor)" begin
       Aijk = permute(Aijk,i,j,k)
       Akl  = permute(Akl,k,l)
       C = Akl*Aijk
-      Ccollect = collect(Aijk)*collect(Akl)
-      @test Ccollect≈collect(permute(C,l,i,j))
+      Ccpu = cpu(Aijk)*cpu(Akl)
+      @test Ccpu≈cpu(permute(C,l,i,j))
     end
     @testset "Test contract cuITensors (3-Tensor*3-Tensor -> 3-Tensor)" begin
       Aijk = permute(Aijk,i,j,k)
       Ajkl = permute(Ajkl,j,k,l)
       C = Aijk*Ajkl
-      Ccollect = collect(Aijk)*collect(Ajkl)
-      @test Ccollect≈collect(permute(C,i,l))
+      Ccpu = cpu(Aijk)*cpu(Ajkl)
+      @test Ccpu≈cpu(permute(C,i,l))
     end
     @testset "Test contract cuITensors (3-Tensor*3-Tensor -> 3-Tensor)" begin
       for inds_ijk ∈ permutations([i,j,k]), inds_jkl ∈ permutations([j,k,l])
         Aijk = permute(Aijk,inds_ijk...)
         Ajkl = permute(Ajkl,inds_jkl...)
         C = Ajkl*Aijk
-        Ccollect = collect(Ajkl) * collect(Aijk)
-        @test Ccollect≈collect(C)
+        Ccpu = cpu(Ajkl) * cpu(Aijk)
+        @test Ccpu≈cpu(C)
       end
     end
     @testset "Test contract cuITensors (4-Tensor*3-Tensor -> 3-Tensor)" begin
@@ -181,8 +181,8 @@ using ITensors,
         Aijkl = permute(Aijkl,inds_ijkl...)
         Akla = permute(Akla,inds_kla...)
         C = Akla*Aijkl
-        Ccollect = collect(Akla) * collect(Aijkl) 
-        @test Ccollect≈collect(C)
+        Ccpu = cpu(Akla) * cpu(Aijkl) 
+        @test Ccpu≈cpu(C)
       end
     end
     @testset "Test contract cuITensors (4-Tensor*3-Tensor -> 1-Tensor)" begin
@@ -190,8 +190,8 @@ using ITensors,
         Aijkl = permute(Aijkl,inds_ijkl...)
         Ajkl = permute(Ajkl,inds_jkl...) 
         C = Ajkl*Aijkl
-        Ccollect = collect(Ajkl)*collect(Aijkl) 
-        @test Ccollect≈collect(C)
+        Ccpu = cpu(Ajkl)*cpu(Aijkl) 
+        @test Ccpu≈cpu(C)
       end
     end
     @testset "Test supersized contract cuITensors (14-Tensor*14-Tensor -> 14-Tensor)" begin
@@ -207,16 +207,16 @@ using ITensors,
         cA_ = permute(cA,inds_a...)
         cB_ = permute(cB,inds_b...)
         C = cA_*cB_
-        Ccollect = collect(cA_)*collect(cB_)
-        @test Ccollect≈collect(C)
+        Ccpu = cpu(cA_)*cpu(cB_)
+        @test Ccpu≈cpu(C)
         for shuffles in 1:1 # too many permutations to test all
             inds_a = shuffle(vcat(a_only_inds, shared_inds))
             inds_b = shuffle(vcat(b_only_inds, shared_inds))
             cA_ = permute(cA,inds_a...)
             cB_ = permute(cB,inds_b...)
             C = cA_*cB_
-            Ccollect = collect(cA_)*collect(cB_)
-            @test Ccollect≈collect(C)
+            Ccpu = cpu(cA_)*cpu(cB_)
+            @test Ccpu≈cpu(C)
         end
     end
   end # End contraction testset
