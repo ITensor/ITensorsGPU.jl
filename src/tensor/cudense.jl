@@ -12,6 +12,9 @@ end
 Base.collect(x::CuDense{T}) where {T<:Number} = Dense(collect(x.data))
 Base.complex(::Type{Dense{ElT, VT}}) where {ElT, VT<:CuArray} = Dense{complex(ElT),CuVector{complex(ElT)}}
 
+similartype(::Type{<:CuArray{<:Any,N}}, eltype::Type) where {N} = CuArray{eltype,N}
+NDTensors.similar(::Type{<:CuArray{T}}, dims) where {T} = CuArray{T,length(dims)}(undef, dims)
+
 CuArray(x::CuDense{ElT}) where {ElT} = CuVector{ElT}(data(x))
 CuArray{ElT, N}(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(reshape(data(store(x)), dims(inds(x))))
 CuArray(x::CuDenseTensor{ElT, N}) where {ElT, N} = CuArray{ElT, N}(x)
@@ -34,7 +37,7 @@ end
 
 function Base.permutedims(T::CuDenseTensor{<:Number,N},
                           perm::NTuple{N,Int}) where {N}
-  Tp = similar(T,ITensors.NDTensors.permute(inds(T),perm))
+  Tp = NDTensors.similar(T,ITensors.NDTensors.permute(inds(T),perm))
   #Tp = permute(T,perm; always_copy=true)
   permute!(Tp, T)
   return Tp

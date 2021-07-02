@@ -15,15 +15,15 @@ end
 cuITensor(x::S, inds::Index...) where {S<:Number} = cuITensor(x,IndexSet(inds...))
 
 #TODO: check that the size of the Array matches the Index dimensions
-function cuITensor(A::Array{S},inds::IndexSet) where {S<:Number}
+function cuITensor(A::Array{S}, inds) where {S<:Number}
     return ITensor(Dense(CuArray{S}(A)), inds)
 end
-function cuITensor(A::CuArray{S},inds::IndexSet) where {S<:Number}
+function cuITensor(A::CuArray{S}, inds::IndexSet) where {S<:Number}
     return ITensor(Dense(A), inds)
 end
 cuITensor(A::Array{S},   inds::Index...) where {S<:Number} = cuITensor(A,IndexSet(inds...))
 cuITensor(A::CuArray{S}, inds::Index...) where {S<:Number} = cuITensor(A,IndexSet(inds...))
-cuITensor(A::ITensor) = store(tensor(A)) isa ITensors.Empty ? cuITensor(A.inds) : cuITensor(data(store(tensor(A))), A.inds)
+cuITensor(A::ITensor) = storage(tensor(A)) isa ITensors.EmptyStorage ? cuITensor(inds(A)) : cuITensor(data(tensor(A)), inds(A))
 
 cu(A::ITensor) = cuITensor(A)
 
