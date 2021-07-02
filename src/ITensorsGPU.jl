@@ -29,7 +29,7 @@ function __init__()
 end
 =#
 import ITensors: randn!, compute_contraction_labels,
-                 plussers, eigen, similar_type, tensor,
+                 eigen, similar_type, tensor,
                  scale!, unioninds, array, matrix, vector,
                  polar, tensors, truncate!, leftlim, rightlim
 import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,

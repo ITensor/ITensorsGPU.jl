@@ -8,9 +8,10 @@ cuITensor(inds::Index...) = cuITensor(IndexSet(inds...))
 
 cuITensor() = ITensor()
 function cuITensor(x::S, inds::IndexSet{N}) where {S<:Number, N}
-    dat = CuVector{float(S)}(undef, dim(inds))
-    fill!(dat, float(x))
-    ITensor(Dense{S}(dat), inds)
+  #dat = CuVector{float(S)}(undef, dim(inds))
+  #fill!(dat, float(x))
+  dat = CUDA.fill(float(x), dim(inds))
+  return ITensor(Dense{S}(dat), inds)
 end
 cuITensor(x::S, inds::Index...) where {S<:Number} = cuITensor(x,IndexSet(inds...))
 
