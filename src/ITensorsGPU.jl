@@ -55,6 +55,7 @@ include("mps/cumpo.jl")
 const ContractionPlans = Dict{String, cutensorAlgo_t}()
 
 export cu,
+       cpu,
        cuITensor,
        randomCuITensor,
        cuMPS,

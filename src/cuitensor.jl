@@ -27,8 +27,8 @@ cuITensor(A::ITensor) = storage(tensor(A)) isa ITensors.EmptyStorage ? cuITensor
 
 cu(A::ITensor) = cuITensor(A)
 
-function Base.collect(A::ITensor)
-    typeof(data(storage(A))) <: CuArray && return ITensor(collect(storage(A)), A.inds)    
+function cpu(A::ITensor)
+    typeof(data(storage(A))) <: CuArray && return ITensor(cpu(storage(A)), A.inds)    
     return A
 end
 

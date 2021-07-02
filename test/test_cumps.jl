@@ -22,7 +22,7 @@ using ITensors,
   
   L = randomMPS(sites)
   K = cuMPS(L)
-  @test all(ITensors.data(collect(K)) .== ITensors.data(collect(L)))
+  @test all(ITensors.data(cpu(K)) .== ITensors.data(cpu(L)))
 
   @testset "cuproductMPS" begin
     @testset "vector of string input" begin
@@ -77,22 +77,22 @@ using ITensors,
     @test phipsi[] ≈ inner(phi,psi)
     phi = randomCuMPS(sites)
     psi = randomCuMPS(sites)
-    cphi = MPS([collect(phi[i]) for i in 1:length(phi)])
-    cpsi = MPS([collect(psi[i]) for i in 1:length(psi)])
+    cphi = MPS([cpu(phi[i]) for i in 1:length(phi)])
+    cpsi = MPS([cpu(psi[i]) for i in 1:length(psi)])
     phipsi = dag(phi[1])*psi[1]
     cphipsi = dag(cphi[1])*cpsi[1]
     for j = 2:N
       phipsi  *= dag(phi[j])*psi[j]
       cphipsi *= dag(cphi[j])*cpsi[j]
     end
-    @test collect(phipsi)[] ≈ cphipsi[]
-    @test collect(phipsi)[] ≈ inner(cphi,cpsi)
-    @test collect(phipsi)[] ≈ inner(phi,psi)
+    @test cpu(phipsi)[] ≈ cphipsi[]
+    @test cpu(phipsi)[] ≈ inner(cphi,cpsi)
+    @test cpu(phipsi)[] ≈ inner(phi,psi)
     phipsi = dag(phi[1])*psi[1]
     for j = 2:N
       phipsi = phipsi*dag(phi[j])*psi[j]
     end
-    @test collect(phipsi)[] ≈ inner(phi,psi)
+    @test cpu(phipsi)[] ≈ inner(phi,psi)
  
     badsites = [Index(2) for n=1:N+1]
     badpsi = randomCuMPS(badsites)
@@ -207,21 +207,21 @@ end
     # Test for left-orthogonality
     L = M[1]*prime(M[1],"Link")
     l = linkind(M,1)
-    @test collect(L) ≈ delta(l,l') rtol=1E-12
+    @test cpu(L) ≈ delta(l,l') rtol=1E-12
     for j=2:c-1
       L = L*M[j]*prime(M[j],"Link")
       l = linkind(M,j)
-      @test collect(L) ≈ delta(l,l') rtol=1E-12
+      @test cpu(L) ≈ delta(l,l') rtol=1E-12
     end
 
     # Test for right-orthogonality
     R = M[N]*prime(M[N],"Link")
     r = linkind(M,N-1)
-    @test collect(R) ≈ delta(r,r') rtol=1E-12
+    @test cpu(R) ≈ delta(r,r') rtol=1E-12
     for j in reverse(c+1:N-1)
       R = R*M[j]*prime(M[j],"Link")
       r = linkind(M,j-1)
-      @test collect(R) ≈ delta(r,r') rtol=1E-12
+      @test cpu(R) ≈ delta(r,r') rtol=1E-12
     end
 
     @test norm(M[c]) ≈ 1.0
@@ -235,11 +235,11 @@ end
     # Test for right-orthogonality
     R = M[N]*prime(M[N],"Link")
     r = linkind(M,N-1)
-    @test collect(R) ≈ delta(r,r') rtol=1E-12
+    @test cpu(R) ≈ delta(r,r') rtol=1E-12
     for j in reverse(2:N-1)
       R = R*M[j]*prime(M[j],"Link")
       r = linkind(M,j-1)
-      @test collect(R) ≈ delta(r,r') rtol=1E-12
+      @test cpu(R) ≈ delta(r,r') rtol=1E-12
     end
     @test inner(M0, M) > 0.1
   end
