@@ -9,6 +9,7 @@ using Random, Strided
 using TimerOutputs
 using StaticArrays
 using ITensors
+using ITensors.NDTensors
 using Strided
 import CUDA: CuArray, CuMatrix, CuVector, cu
 import CUDA.CUTENSOR: cutensorContractionPlan_t, cutensorAlgo_t
@@ -29,16 +30,17 @@ function __init__()
 end
 =#
 import ITensors: randn!, compute_contraction_labels,
-                 plussers, eigen, similar_type, tensor,
+                 eigen, tensor,
                  scale!, unioninds, array, matrix, vector,
                  polar, tensors, truncate!, leftlim, rightlim,
                  permute, BroadcastStyle
-import ITensors.NDTensors: ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
+import ITensors.NDTensors: similartype, ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
                          outer!, outer!!, is_trivial_permutation, ind, permutedims!!, Dense, DenseTensor, Combiner,
                          Tensor, data, getperm, compute_contraction_properties!, Atrans, Btrans, Ctrans, _contract_scalar!, _contract_scalar_noperm!
 import Base.*, Base.permutedims!
+import Base: similar
 include("tensor/cudense.jl")
 include("tensor/dense.jl")
 include("tensor/culinearalgebra.jl")
