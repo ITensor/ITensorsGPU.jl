@@ -39,6 +39,7 @@ using ITensors,
         res = psi[j]*ops*dag(psip)
         @test res[] ≈ sign/2
       end
+      @test_throws DimensionMismatch cuMPS(sites, fill("", N - 1))
       @test_throws DimensionMismatch productCuMPS(sites, fill("", N - 1))
     end
 
