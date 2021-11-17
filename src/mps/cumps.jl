@@ -78,7 +78,7 @@ function cuMPS(::Type{T}, ivals::Vector{<:Pair{<:Index}}) where {T<:Number}
   end
   return MPS(As,0,2)
 end
-cuMPS(ivals::Vector{<:IndexVal}) = cuMPS(Float64, ivals)
+cuMPS(ivals::Vector{Pair{<:Index}}) = cuMPS(Float64, ivals)
 
 function cuMPS(::Type{T}, sites::Vector{<:Index}, states_) where {T<:Number}
   if length(sites) != length(states_)
