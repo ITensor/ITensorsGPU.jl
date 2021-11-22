@@ -23,7 +23,7 @@ function cuITensor(A::CuArray{S}, inds::IndexSet) where {S<:Number}
 end
 cuITensor(A::Array{S},   inds::Index...) where {S<:Number} = cuITensor(A,IndexSet(inds...))
 cuITensor(A::CuArray{S}, inds::Index...) where {S<:Number} = cuITensor(A,IndexSet(inds...))
-cuITensor(A::ITensor) = storage(tensor(A)) isa ITensors.EmptyStorage ? cuITensor(inds(A)) : cuITensor(data(tensor(A)), inds(A))
+cuITensor(A::ITensor) = storage(tensor(A)) isa ITensors.EmptyStorage ? cuITensor(zero(eltype(storage(tensor(A)))), inds(A)...) : cuITensor(data(tensor(A)), inds(A)...)
 
 cu(A::ITensor) = cuITensor(A)
 
@@ -32,17 +32,17 @@ function cpu(A::ITensor)
     return A
 end
 
-function randomCuITensor(::Type{S},inds::IndexSet) where {S<:Real}
+function randomCuITensor(::Type{S},inds::Indices) where {S<:Real}
   T = cuITensor(S,inds)
   randn!(T)
   return T
 end
-function randomCuITensor(::Type{S},inds::IndexSet) where {S<:Complex}
+function randomCuITensor(::Type{S},inds::Indices) where {S<:Complex}
   Tr = cuITensor(real(S),inds)
-  randn!(Tr)
   Ti = cuITensor(real(S),inds)
+  randn!(Tr)
   randn!(Ti)
-  return complex(Tr) + im.*complex(Ti)
+  return complex(Tr) + im * Ti
 end
 randomCuITensor(::Type{S},inds::Index...) where {S<:Number} = randomCuITensor(S,IndexSet(inds...))
 randomCuITensor(inds::IndexSet) = randomCuITensor(Float64,inds)
@@ -53,7 +53,7 @@ CuArray(T::ITensor) = CuArray(tensor(T))
 function CuArray{ElT, N}(T::ITensor,
                          is::Vararg{Index, N}) where {ElT, N}
   ndims(T) != N && throw(DimensionMismatch("cannot convert an $(ndims(T)) dimensional ITensor to an $N-dimensional CuArray."))
-  TT = tensor(permute(T, is...; always_copy = true))
+  TT = tensor(permute(T, is...; allow_alias=true))
   return CuArray{ElT, N}(TT)::CuArray{ElT, N}
 end
 

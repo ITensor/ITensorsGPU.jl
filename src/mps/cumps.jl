@@ -9,9 +9,20 @@ end
 cu(ψ::MPS) = cuMPS(ψ)
 
 cuMPS() = MPS() 
-function cuMPS(sites) # random MPS
+function cuMPS(::Type{T}, sites::Vector{<:Index}; linkdims::Integer=1) where {T<:Number}
   N = length(sites)
   v = Vector{ITensor}(undef, N)
+  if N == 1
+    v[1] = emptyITensor(T, sites[1])
+    return MPS(v)
+  end
+
+  space = if hasqns(sites)
+    [QN() => linkdims]
+  else
+    linkdims
+  end
+  
   l = [Index(1, "Link,l=$ii") for ii=1:N-1]
   for ii in eachindex(sites)
     s = sites[ii]
@@ -25,6 +36,10 @@ function cuMPS(sites) # random MPS
   end
   return MPS(v,0,N+1)
 end
+cuMPS(sites::Vector{<:Index}, args...; kwargs...) = cuMPS(Float64, sites, args...; kwargs...)
+function cuMPS(N::Int; ortho_lims::UnitRange=1:N)
+    return MPS(Vector{ITensor}(undef, N); ortho_lims=ortho_lims)
+end
 
 function randomCuMPS(sites)
   M = cuMPS(sites)
@@ -36,8 +51,13 @@ function randomCuMPS(sites)
   M.rlim = length(M)
   return M
 end
+function randomCuMPS(N::Int; ortho_lims::UnitRange=1:N)
+  return randomCuMPS(Vector{ITensor}(undef, N); ortho_lims=ortho_lims)
+end
 
-function productCuMPS(::Type{T}, ivals::Vector{<:IndexVal}) where {T<:Number}
+const productCuMPS = cuMPS
+
+function cuMPS(::Type{T}, ivals::Vector{<:Pair{<:Index}}) where {T<:Number}
   N     = length(ivals)
   As    = Vector{ITensor}(undef,N)
   links = Vector{Index}(undef,N)
@@ -58,15 +78,57 @@ function productCuMPS(::Type{T}, ivals::Vector{<:IndexVal}) where {T<:Number}
   end
   return MPS(As,0,2)
 end
-productCuMPS(ivals::Vector{<:IndexVal}) = productCuMPS(Float64, ivals)
+cuMPS(ivals::Vector{Pair{<:Index}}) = cuMPS(Float64, ivals)
 
-function productCuMPS(::Type{T}, sites,
-                      states) where {T<:Number}
-  if length(sites) != length(states)
-    throw(DimensionMismatch("Number of sites and and initial states don't match"))
+function cuMPS(::Type{T}, sites::Vector{<:Index}, states_) where {T<:Number}
+  if length(sites) != length(states_)
+    throw(DimensionMismatch("Number of sites and and initial vals don't match"))
   end
-  ivals = [state(sites[n],states[n]) for n=1:length(sites)]
-  return productCuMPS(T, ivals)
+  N = length(states_)
+  M = cuMPS(N)
+
+  if N == 1
+    M[1] = state(sites[1], states_[1])
+    return M
+  end
+
+  states = [state(sites[j], states_[j]) for j in 1:N]
+
+  if hasqns(states[1])
+    lflux = QN()
+    for j in 1:(N - 1)
+      lflux += flux(states[j])
+    end
+    links = Vector{QNIndex}(undef, N - 1)
+    for j in (N - 1):-1:1
+      links[j] = Index(lflux => 1; tags="Link,l=$j", dir=In)
+      lflux -= flux(states[j])
+    end
+  else
+    links = [Index(1; tags="Link,l=$n") for n in 1:N]
+  end
+
+  M[1] = cuITensor(T, sites[1], links[1])
+  M[1] += cuITensor(states[1] * state(links[1], 1))
+  for n in 2:(N - 1)
+    M[n] = cuITensor(T, dag(links[n - 1]), sites[n], links[n])
+    M[n] += cuITensor(state(dag(links[n - 1]), 1) * states[n] * state(links[n], 1))
+  end
+  M[N] = cuITensor(T, dag(links[N - 1]), sites[N])
+  M[N] += cuITensor(state(dag(links[N - 1]), 1) * states[N])
+
+  return M
 end
 
-productCuMPS(sites, states) = productCuMPS(Float64, sites, states)
+function cuMPS(
+  ::Type{T}, sites::Vector{<:Index}, state::Union{String,Integer}
+) where {T<:Number}
+  return cuMPS(T, sites, fill(state, length(sites)))
+end
+
+function cuMPS(::Type{T}, sites::Vector{<:Index}, states::Function) where {T<:Number}
+  states_vec = [states(n) for n in 1:length(sites)]
+  return cuMPS(T, sites, states_vec)
+end
+
+cuMPS(sites::Vector{<:Index}, states) = cuMPS(Float64, sites, states)

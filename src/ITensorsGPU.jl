@@ -33,7 +33,7 @@ import ITensors: randn!, compute_contraction_labels,
                  eigen, tensor,
                  scale!, unioninds, array, matrix, vector,
                  polar, tensors, truncate!, leftlim, rightlim,
-                 permute, BroadcastStyle
+                 permute, BroadcastStyle, Indices
 import ITensors.NDTensors: similartype, ContractionProperties, contract!!, _contract!!, _contract!, contract!, contract,
                          contraction_output, UniformDiagTensor, CombinerTensor, contraction_output_type,
                          UniformDiag, Diag, DiagTensor, NonuniformDiag, NonuniformDiagTensor, zero_contraction_output,
