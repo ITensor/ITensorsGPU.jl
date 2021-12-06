@@ -1,3 +1,8 @@
+> ⚠️ **INFO: This repository is deprecated**
+> 
+> The source code for the `ITensorGPU` package has been moved into the monorepo at [ITensors.jl](https://github.com/ITensor/ITensors.jl).
+> Please refer to that repository for the latest changes.
+
 # ITensorsGPU: Intelligent Tensors with GPU acceleration
 
 [![codecov](https://codecov.io/gh/ITensor/ITensorsGPU.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ITensor/ITensorsGPU.jl)
