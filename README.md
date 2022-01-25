@@ -1,7 +1,9 @@
 > ⚠️ **INFO: This repository is deprecated**
 > 
-> The source code for the `ITensorGPU` package has been moved into the monorepo at [ITensors.jl](https://github.com/ITensor/ITensors.jl).
-> Please refer to that repository for the latest changes.
+> The source code for this package has been moved into the ITensors.jl monorepo [here](https://github.com/ITensor/ITensors.jl/tree/main/ITensorGPU).
+> Note that the name of the module/package was renamed from `ITensorsGPU` to `ITensorGPU` for consistency with other packages that are based
+> on ITensors.jl, and additionally it is now registered under the new name `ITensorGPU`.
+> Please refer to that repository for the latest changes, and raise any issues in the ITensors.jl monorepo [here](https://github.com/ITensor/ITensors.jl/issues).
 
 # ITensorsGPU: Intelligent Tensors with GPU acceleration
 
